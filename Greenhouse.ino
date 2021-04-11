@@ -3,41 +3,31 @@
 
  ****************************************************/
 
-#include "LC709203F.h"
-#include "DFRobot_CCS811.h"
-#include "DFRobot_BME280.h"
-#include "Wire.h"
-#include <WiFi.h>
+/**
+ * Library Includes
+ */
 #include <WiFiClientSecure.h>
 #include "Adafruit_MQTT.h"
 #include "Adafruit_MQTT_Client.h"
+
+/**
+ * Local Includes
+ */
+#include "config.h"
+#include "Sensors.h"
 
 /************************* Deep Sleep *********************************/
 
 #define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
 #define TIME_TO_SLEEP  60        /* Time ESP32 will go to sleep (in seconds) */
 
-/************************* WiFi Access Point *********************************/
-
-#define WLAN_SSID       "Matthews-NCF"
-#define WLAN_PASS       "OurNetwork@Home"
-
-/************************* Adafruit.io Setup *********************************/
-
-#define AIO_SERVER      "io.adafruit.com"
-#define AIO_SERVERPORT  8883                   // use 8883 for SSL, or 1883 for non secure
-#define AIO_USERNAME    "Rich_M"
-#define AIO_KEY         "aio_znZz20yk7U58KKP78wYzwbmVpXew"
-
-
 /************************* Other Constants *********************************/
 
 #define NUM_SETUP_RETRIES 5
-#define CCS811_BASELINE 0x3480
-
-typedef DFRobot_BME280_IIC    BME;
 
 /************ Global State ******************/
+
+Sensors sensors;
 
 RTC_DATA_ATTR int bootCount = 0;
 
@@ -70,13 +60,6 @@ const char* test_root_ca= \
 // Setup the MQTT client class by passing in the WiFi client and MQTT server and login details.
 Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_KEY);
 
-// Gas Gauge
-LC709203F gg;
-
-DFRobot_CCS811 CCS811;
-
-BME   bme(&Wire, 0x76);
-
 /****************************** Feeds ***************************************/
 
 // Setup a feed called 'photocell' for publishing.
@@ -89,12 +72,12 @@ Adafruit_MQTT_Publish air_temp_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME 
 /*************************** Sketch Code ************************************/
 
 void MQTT_connect();
-void getCCS811DataAndPublish();
-void getBME280DataAndPublish();
-void getGGDataAndPublish();
-bool bme280_init();
-bool ccs811_init();
-bool gg_init();
+
+// Error handler sleeps to restart us
+void errorHandler() {
+  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
+  esp_deep_sleep_start();
+}
 
 void setup() {
   Serial.begin(115200);
@@ -104,13 +87,6 @@ void setup() {
   Serial.print("Boot count is: ");
   Serial.println(bootCount);
   bootCount++;
-
-  ccs811_init();
-
-  bme280_init();
-
-  gg_init();
-
 
   // Connect to WiFi access point.
   Serial.println(); Serial.println();
@@ -128,6 +104,14 @@ void setup() {
   Serial.println("IP address: "); Serial.println(WiFi.localIP());
 
   client.setCACert(test_root_ca);
+
+  Serial.println("Initializing sensors");
+  sensor_status_t rc = sensors.init();
+  if (rc != SENSOR_OK) {
+    Serial.print("Error initing sensors: ")
+    Serial.println(Sensors::status_to_string(rc));
+    errorHandler();
+  }
 }
 
 void loop() {
@@ -136,10 +120,21 @@ void loop() {
   // function definition further below.
   MQTT_connect();
 
-  // Now we can publish stuff!
-  getGGDataAndPublish();
-  getCCS811DataAndPublish();
-  getBME280DataAndPublish();
+  Serial.println("Reading from sensors");
+  sensor_status_t rc = sensors.update_all_values();
+  if (rc != SENSOR_OK) {
+    Serial.print("Error reading sensors: ")
+    Serial.println(Sensors::status_to_string(rc));
+    errorHandler();
+  }
+
+  Serial.println("Publishing sensor data");
+  sensor_status_t rc = sensors.publish_all_feeds();
+  if (rc != SENSOR_OK) {
+    Serial.print("Error publishing sensor data: ")
+    Serial.println(Sensors::status_to_string(rc));
+    errorHandler();
+  }
 
   Serial.print("Going to sleep for (seconds): ");
   Serial.println(TIME_TO_SLEEP);
@@ -172,151 +167,4 @@ void MQTT_connect() {
        }
   }
   Serial.println("MQTT Connected!");
-}
-
-void getCCS811DataAndPublish() {
-    CCS811.writeBaseLine(CCS811_BASELINE);
-
-    Serial.println("Waiting for CCS811 data to be ready");
-    while (!CCS811.checkDataReady()) {
-      delay(100);
-    }
-
-    double co2_ppm = CCS811.getCO2PPM();
-    Serial.print("\nSending co2 ppm val ");
-    Serial.print(co2_ppm);
-    Serial.print("...");
-    if (! co2_ppm_feed.publish(co2_ppm)) {
-      Serial.println("Failed");
-    } else {
-      Serial.println("OK!");
-    }
-}
-
-void getBME280DataAndPublish() {
-  float temp = bme.getTemperature();
-  Serial.print("\nSending air temp val ");
-  Serial.print(temp);
-  Serial.print("...");
-  if (! air_temp_feed.publish(temp)) {
-    Serial.println("Failed");
-  } else {
-    Serial.println("OK!");
-  }
-}
-
-// show last sensor operate status
-void printLastOperateStatus(BME::eStatus_t eStatus)
-{
-  switch(eStatus) {
-  case BME::eStatusOK:    Serial.println("everything ok"); break;
-  case BME::eStatusErr:   Serial.println("unknow error"); break;
-  case BME::eStatusErrDeviceNotDetected:    Serial.println("device not detected"); break;
-  case BME::eStatusErrParameter:    Serial.println("parameter error"); break;
-  default: Serial.println("unknow status"); break;
-  }
-}
-
-bool bme280_init()
-{
-  int setupRetries;
-
-  bme.reset();
-
-  Serial.println("Setting up bme280");
-  for (setupRetries = 0; setupRetries < NUM_SETUP_RETRIES; setupRetries++) {
-    if (bme.begin() != BME::eStatusOK) {
-      Serial.println("bme begin faild");
-      printLastOperateStatus(bme.lastOperateStatus);
-      delay(500);
-    } else {
-      break;
-    }
-  }
-
-  if (setupRetries >= NUM_SETUP_RETRIES) {
-    Serial.println("Gave up setting up bme280");
-    while (1);
-  }
-
-  Serial.println("bme init success");
-
-  return true;
-}
-
-bool ccs811_init()
-{
-  int setupRetries;
-
-  Serial.println("Setting up CCS811");
-  for (setupRetries = 0; setupRetries < NUM_SETUP_RETRIES; setupRetries++) {
-    if (CCS811.begin() != 0) {
-      Serial.println("Failed to init CCS811");
-      delay(500);
-    } else {
-      break;
-    }
-  }
-
-  if (setupRetries >= NUM_SETUP_RETRIES) {
-    Serial.println("Gave up setting up ccs811");
-    while (1);
-  }
-
-  Serial.println("ccs811 init success");
-
-  return true;
-}
-
-bool gg_init()
-{
-  int setupRetries;
-
-  Serial.println("Setting up gas gauge");
-  for (setupRetries = 0; setupRetries < NUM_SETUP_RETRIES; setupRetries++) {
-    if (!gg.begin()) {
-      Serial.println("Failed to init gas gauge");
-      delay(500);
-    } else {
-      break;
-    }
-  }
-
-
-  if (setupRetries >= NUM_SETUP_RETRIES) {
-    Serial.println("Gave up setting up ccs811");
-    while (1);
-  }
-
-  gg.setCellCapacity(LC709203F_APA_2000MAH);
-
-  gg.setAlarmVoltage(3.4);
-  gg.setCellProfile( LC709203_NOM3p7_Charge4p2 ) ;
-
-  Serial.println("ccs811 init success");
-
-  return true;
-}
-
-void getGGDataAndPublish()
-{
-  Serial.print("\nSending soc val ");
-  double battery_soc = double(gg.cellRemainingPercent10()) / 10;
-  Serial.print(battery_soc);
-  Serial.print("...");
-  if (! soc_feed.publish(battery_soc)) {
-    Serial.println("Failed");
-  } else {
-    Serial.println("OK!");
-  }
-
-  Serial.print("\nSending cell voltage val ");
-  double battery_voltage_mv = double(gg.cellVoltage_mV()) / 1000.0;
-  Serial.print(battery_voltage_mv);
-  Serial.print("...");
-  if (! cell_voltage_feed.publish(battery_voltage_mv)) {
-    Serial.println("Failed");
-  } else {
-    Serial.println("OK!");
-  }
 }
