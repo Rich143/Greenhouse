@@ -99,21 +99,33 @@ sensor_status_t Sensors::update_ccs811_values() {
 
     Serial.println("Waiting for CCS811 data to be ready");
     int num_tries;
-    for (num_tries = 0; num_tries < NUM_SETUP_RETRIES; ++num_tries) {
+    //for (num_tries = 0; num_tries < NUM_SETUP_RETRIES; ++num_tries) {
+    while (1) {
         if (!CCS811.checkDataReady()) {
-            delay(100);
+            Serial.print(".");
+            delay(500);
+        } else {
+          break;
         }
     }
+    Serial.println();
 
     if (num_tries == NUM_SETUP_RETRIES) {
-        Serial.println("Failed to read ccs811 values");
+        Serial.println("Failed to read ccs811 values, data not ready");
         return SENSOR_FAIL;
     }
 
     co2_ppm = CCS811.getCO2PPM();
+
+    return SENSOR_OK;
 }
 
 sensor_status_t Sensors::publish_co2() {
+    if (_co2_feed == nullptr) {
+        Serial.println("CO2 Feed not set");
+        return SENSOR_FAIL;
+    }
+
     Serial.print("Sending co2 ppm val ");
     Serial.print(co2_ppm);
     Serial.print("...");
@@ -128,9 +140,16 @@ sensor_status_t Sensors::publish_co2() {
 
 sensor_status_t Sensors::update_bme280_values() {
     air_temp_celsius = bme.getTemperature();
+
+    return SENSOR_OK;
 }
 
 sensor_status_t Sensors::publish_air_temp() {
+    if (_air_temp_feed == nullptr) {
+        Serial.println("Air Temp Feed not set");
+        return SENSOR_FAIL;
+    }
+
     Serial.print("\nSending air temp val ");
     Serial.print(air_temp_celsius);
     Serial.print("...");
@@ -146,9 +165,16 @@ sensor_status_t Sensors::publish_air_temp() {
 sensor_status_t Sensors::update_gg_values() {
     battery_soc_percent = double(gg.cellRemainingPercent10()) / 10;
     battery_voltage_mv = double(gg.cellVoltage_mV()) / 1000.0;
+
+    return SENSOR_OK;
 }
 
 sensor_status_t Sensors::publish_soc() {
+    if (_soc_feed == nullptr) {
+        Serial.println("SOC Feed not set");
+        return SENSOR_FAIL;
+    }
+
     Serial.print("\nSending soc val ");
     Serial.print(battery_soc_percent);
     Serial.print("...");
@@ -162,16 +188,21 @@ sensor_status_t Sensors::publish_soc() {
 }
 
 sensor_status_t Sensors::publish_cell_voltage() {
-  Serial.print("\nSending cell voltage val ");
-  Serial.print(battery_voltage_mv);
-  Serial.print("...");
-  if (!_cell_voltage_feed->publish(battery_voltage_mv)) {
-    Serial.println("Failed");
-    return SENSOR_FAIL;
-  } else {
-    Serial.println("OK!");
-    return SENSOR_OK;
-  }
+    if (_cell_voltage_feed == nullptr) {
+        Serial.println("Cell Voltage Feed not set");
+        return SENSOR_FAIL;
+    }
+
+    Serial.print("\nSending cell voltage val ");
+    Serial.print(battery_voltage_mv);
+    Serial.print("...");
+    if (!_cell_voltage_feed->publish(battery_voltage_mv)) {
+        Serial.println("Failed");
+        return SENSOR_FAIL;
+    } else {
+        Serial.println("OK!");
+        return SENSOR_OK;
+    }
 }
 
 // show last sensor operate status
@@ -279,17 +310,37 @@ String Sensors::status_to_string(sensor_status_t status) {
 }
 
 sensor_status_t Sensors::set_soc_feed(Adafruit_MQTT_Publish *soc_feed) {
-  _soc_feed = soc_feed;
+    //Serial.print("Setting soc feed: ");
+    //Serial.println((uint32_t)soc_feed);
+
+    _soc_feed = soc_feed;
+
+    return SENSOR_OK;
 }
 
 sensor_status_t Sensors::set_cell_voltage_feed(Adafruit_MQTT_Publish *cell_voltage_feed) {
-  _cell_voltage_feed = cell_voltage_feed;
+    //Serial.print("Setting cell voltage feed: ");
+    //Serial.println((uint32_t)cell_voltage_feed);
+
+    _cell_voltage_feed = cell_voltage_feed;
+
+    return SENSOR_OK;
 }
 
 sensor_status_t Sensors::set_co2_feed(Adafruit_MQTT_Publish *co2_feed) {
-  _cell_voltage_feed = co2_feed;
+    //Serial.print("Setting co2 feed: ");
+    //Serial.println((uint32_t)co2_feed);
+
+    _co2_feed = co2_feed;
+
+    return SENSOR_OK;
 }
 
 sensor_status_t Sensors::set_air_temp_feed(Adafruit_MQTT_Publish *air_temp_feed) {
-  _air_temp_feed = air_temp_feed;
+    //Serial.print("Setting air temp feed: ");
+    //Serial.println((uint32_t)air_temp_feed);
+
+    _air_temp_feed = air_temp_feed;
+
+    return SENSOR_OK;
 }

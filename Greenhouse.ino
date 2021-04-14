@@ -115,6 +115,12 @@ void setup() {
     Serial.println(Sensors::status_to_string(rc));
     errorHandler();
   }
+
+  Serial.println("Setting sensor mqtt feeds");
+  gSensors.set_soc_feed(&soc_feed);
+  gSensors.set_cell_voltage_feed(&cell_voltage_feed);
+  gSensors.set_co2_feed(&co2_ppm_feed);
+  gSensors.set_air_temp_feed(&air_temp_feed);
 }
 
 void loop() {
