@@ -3,34 +3,35 @@
 
 #include "Adafruit_MQTT.h"
 #include "Adafruit_MQTT_Client.h"
-#include <string>
+#include "LC709203F.h"
+#include "DFRobot_CCS811.h"
+#include "BME280.h"
 
 enum sensor_status_t {
     SENSOR_OK,
     SENSOR_FAIL
 };
 
-typedef DFRobot_BME280_IIC    BME;
-
 class Sensors {
     public:
+
+    Sensors() {}
 
     sensor_status_t init();
 
     sensor_status_t update_all_values();
 
-    sensor_status_t set_soc_feed(Adafruit_MQTT_Publish soc_feed);
-    sensor_status_t set_cell_voltage_feed(Adafruit_MQTT_Publish
-                                          cell_voltage_feed);
-    sensor_status_t set_co2_feed(Adafruit_MQTT_Publish co2_feed);
-    sensor_status_t set_air_temp_feed(Adafruit_MQTT_Publish air_temp_feed);
+    sensor_status_t set_soc_feed(Adafruit_MQTT_Publish *soc_feed);
+    sensor_status_t set_cell_voltage_feed(Adafruit_MQTT_Publish *cell_voltage_feed);
+    sensor_status_t set_co2_feed(Adafruit_MQTT_Publish *co2_feed);
+    sensor_status_t set_air_temp_feed(Adafruit_MQTT_Publish *air_temp_feed);
 
     /**
       * @brief Publishes current sensor data to the MQTT feeds
       */
     sensor_status_t publish_all_feeds();
 
-    static std::string status_to_string(sensor_status_t status);
+    static String status_to_string(sensor_status_t status);
 
     private:
 
@@ -47,17 +48,17 @@ class Sensors {
     sensor_status_t publish_soc();
     sensor_status_t publish_cell_voltage();
 
-    std::string bme_operate_status_to_string(BME::eStatus_t eStatus);
+    String bme_operate_status_to_string(BME280::eStatus_t eStatus);
 
     double co2_ppm;
     double air_temp_celsius;
     double battery_soc_percent;
     double battery_voltage_mv;
 
-    Adafruit_MQTT_Publish _soc_feed;
-    Adafruit_MQTT_Publish _cell_voltage_feed;
-    Adafruit_MQTT_Publish _co2_feed;
-    Adafruit_MQTT_Publish _air_temp_feed;
+    Adafruit_MQTT_Publish *_soc_feed;
+    Adafruit_MQTT_Publish *_cell_voltage_feed;
+    Adafruit_MQTT_Publish *_co2_feed;
+    Adafruit_MQTT_Publish *_air_temp_feed;
 
     // Gas Gauge
     LC709203F gg;
@@ -66,7 +67,10 @@ class Sensors {
     DFRobot_CCS811 CCS811;
 
     // Weather monitor sensor
-    BME   bme(&Wire, 0x76);
+    BME280 bme;
 };
+
+// global sensors instance
+extern Sensors gSensors;
 
 #endif /* end of include guard: __SENSORS_H */

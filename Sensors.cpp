@@ -1,20 +1,34 @@
 #include "LC709203F.h"
 #include "DFRobot_CCS811.h"
-#include "DFRobot_BME280.h"
+#include "BME280.h"
 #include "Wire.h"
 #include <WiFi.h>
 
 #include "Sensors.h"
+#include "Power_Controller.h"
 
 // Sensor setup number retries
 #define NUM_SETUP_RETRIES 5
 
 #define CCS811_BASELINE 0x3480
 
+Sensors gSensors;
+
 sensor_status_t Sensors::init() {
     sensor_status_t rc;
 
-    rc= bme280_init();
+    // turn on the power
+    power_controller_status_t power_rc = gPowerController.init();
+    if (power_rc != POWER_CONTROLLER_OK) {
+      return SENSOR_FAIL;
+    }
+
+    power_rc = gPowerController.setPowerChannel(PowerController::POWER_CHANNEL_3V3, true);
+    if (rc != POWER_CONTROLLER_OK) {
+      return SENSOR_FAIL;
+    }
+
+    rc = bme280_init();
     if (rc != SENSOR_OK) {
         return rc;
     }
@@ -103,7 +117,7 @@ sensor_status_t Sensors::publish_co2() {
     Serial.print("Sending co2 ppm val ");
     Serial.print(co2_ppm);
     Serial.print("...");
-    if (!_co2_feed.publish(co2_ppm)) {
+    if (!_co2_feed->publish(co2_ppm)) {
       Serial.println("Failed");
       return SENSOR_FAIL;
     } else {
@@ -120,7 +134,7 @@ sensor_status_t Sensors::publish_air_temp() {
     Serial.print("\nSending air temp val ");
     Serial.print(air_temp_celsius);
     Serial.print("...");
-    if (!_air_temp_feed.publish(air_temp_celsius)) {
+    if (!_air_temp_feed->publish(air_temp_celsius)) {
         Serial.println("Failed");
         return SENSOR_FAIL;
     } else {
@@ -138,7 +152,7 @@ sensor_status_t Sensors::publish_soc() {
     Serial.print("\nSending soc val ");
     Serial.print(battery_soc_percent);
     Serial.print("...");
-    if (!_soc_feed.publish(battery_soc_percent)) {
+    if (!_soc_feed->publish(battery_soc_percent)) {
         Serial.println("Failed");
         return SENSOR_FAIL;
     } else {
@@ -151,7 +165,7 @@ sensor_status_t Sensors::publish_cell_voltage() {
   Serial.print("\nSending cell voltage val ");
   Serial.print(battery_voltage_mv);
   Serial.print("...");
-  if (!_cell_voltage_feed.publish(battery_voltage_mv)) {
+  if (!_cell_voltage_feed->publish(battery_voltage_mv)) {
     Serial.println("Failed");
     return SENSOR_FAIL;
   } else {
@@ -161,13 +175,13 @@ sensor_status_t Sensors::publish_cell_voltage() {
 }
 
 // show last sensor operate status
-std::string Sensors::bme_operate_status_to_string(BME::eStatus_t eStatus)
+String Sensors::bme_operate_status_to_string(BME280::eStatus_t eStatus)
 {
   switch(eStatus) {
-      case BME::eStatusOK:    return "everything ok"; break;
-      case BME::eStatusErr:   return "unknow error"; break;
-      case BME::eStatusErrDeviceNotDetected:    return "device not detected"; break;
-      case BME::eStatusErrParameter:    return "parameter error"; break;
+      case BME280::eStatusOK:    return "everything ok"; break;
+      case BME280::eStatusErr:   return "unknow error"; break;
+      case BME280::eStatusErrDeviceNotDetected:    return "device not detected"; break;
+      case BME280::eStatusErrParameter:    return "parameter error"; break;
       default: return "unknown status"; break;
   }
 }
@@ -176,11 +190,14 @@ sensor_status_t Sensors::bme280_init()
 {
   int setupRetries;
 
+  bme.setI2CInterface(&Wire);
+  bme.setAddr(0x76);
+
   bme.reset();
 
   Serial.println("Setting up bme280");
   for (setupRetries = 0; setupRetries < NUM_SETUP_RETRIES; setupRetries++) {
-    if (bme.begin() != BME::eStatusOK) {
+    if (bme.begin() != BME280::eStatusOK) {
       Serial.println("bme begin faild");
       Serial.println(bme_operate_status_to_string(bme.lastOperateStatus));
       delay(500);
@@ -253,7 +270,7 @@ sensor_status_t Sensors::gg_init()
   return SENSOR_OK;
 }
 
-static std::string Sensors::status_to_string(sensor_status_t status) {
+String Sensors::status_to_string(sensor_status_t status) {
   switch(status) {
       case SENSOR_OK:    return "Everything ok"; break;
       case SENSOR_FAIL:  return "Failure"; break;
@@ -261,3 +278,18 @@ static std::string Sensors::status_to_string(sensor_status_t status) {
   }
 }
 
+sensor_status_t Sensors::set_soc_feed(Adafruit_MQTT_Publish *soc_feed) {
+  _soc_feed = soc_feed;
+}
+
+sensor_status_t Sensors::set_cell_voltage_feed(Adafruit_MQTT_Publish *cell_voltage_feed) {
+  _cell_voltage_feed = cell_voltage_feed;
+}
+
+sensor_status_t Sensors::set_co2_feed(Adafruit_MQTT_Publish *co2_feed) {
+  _cell_voltage_feed = co2_feed;
+}
+
+sensor_status_t Sensors::set_air_temp_feed(Adafruit_MQTT_Publish *air_temp_feed) {
+  _air_temp_feed = air_temp_feed;
+}

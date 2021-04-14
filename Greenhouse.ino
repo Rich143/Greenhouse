@@ -14,6 +14,7 @@
  * Local Includes
  */
 #include "config.h"
+#include "Secrets.h"
 #include "Sensors.h"
 
 /************************* Deep Sleep *********************************/
@@ -26,8 +27,6 @@
 #define NUM_SETUP_RETRIES 5
 
 /************ Global State ******************/
-
-Sensors sensors;
 
 RTC_DATA_ATTR int bootCount = 0;
 
@@ -94,9 +93,13 @@ void setup() {
   Serial.println(WLAN_SSID);
 
   WiFi.begin(WLAN_SSID, WLAN_PASS);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+  for (int i = 0; i < NUM_SETUP_RETRIES; i++) {
+    if (WiFi.status() != WL_CONNECTED) {
+      Serial.print(".");
+      delay(500);
+    } else {
+      break;
+    }
   }
   Serial.println();
 
@@ -106,9 +109,9 @@ void setup() {
   client.setCACert(test_root_ca);
 
   Serial.println("Initializing sensors");
-  sensor_status_t rc = sensors.init();
+  sensor_status_t rc = gSensors.init();
   if (rc != SENSOR_OK) {
-    Serial.print("Error initing sensors: ")
+    Serial.print("Error initing sensors: ");
     Serial.println(Sensors::status_to_string(rc));
     errorHandler();
   }
@@ -121,17 +124,17 @@ void loop() {
   MQTT_connect();
 
   Serial.println("Reading from sensors");
-  sensor_status_t rc = sensors.update_all_values();
+  sensor_status_t rc = gSensors.update_all_values();
   if (rc != SENSOR_OK) {
-    Serial.print("Error reading sensors: ")
+    Serial.print("Error reading sensors: ");
     Serial.println(Sensors::status_to_string(rc));
     errorHandler();
   }
 
   Serial.println("Publishing sensor data");
-  sensor_status_t rc = sensors.publish_all_feeds();
+  rc = gSensors.publish_all_feeds();
   if (rc != SENSOR_OK) {
-    Serial.print("Error publishing sensor data: ")
+    Serial.print("Error publishing sensor data: ");
     Serial.println(Sensors::status_to_string(rc));
     errorHandler();
   }
@@ -162,8 +165,7 @@ void MQTT_connect() {
        delay(5000);  // wait 5 seconds
        retries--;
        if (retries == 0) {
-         // basically die and wait for WDT to reset me
-         while (1);
+         errorHandler();
        }
   }
   Serial.println("MQTT Connected!");
