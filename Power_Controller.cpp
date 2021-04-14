@@ -16,10 +16,10 @@ power_controller_status_t PowerController::setPowerChannel(PowerChannel channel,
 {
     switch (channel) {
         case POWER_CHANNEL_3V3:
-            digitalWrite(PIN_3V3_ENABLE, true);
+            digitalWrite(PIN_3V3_ENABLE, enable);
             break;
         case POWER_CHANNEL_9V_12V:
-            digitalWrite(PIN_9V_12V_ENABLE, true);
+            digitalWrite(PIN_9V_12V_ENABLE, enable);
             break;
         default:
             Serial.print("Set Power Channel: invalid channel ");
