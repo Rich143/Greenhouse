@@ -116,6 +116,7 @@ status_t Sensors::update_ccs811_values() {
     }
 
     co2_ppm = CCS811.getCO2PPM();
+    LOG_INFO("Co2 ppm is: " + String(co2_ppm));
 
     return STATUS_OK;
 }
@@ -126,7 +127,7 @@ status_t Sensors::publish_co2() {
         return STATUS_FAIL;
     }
 
-    LOG_INFO("Sending co2 ppm val: %f", co2_ppm);
+    LOG_INFO("Sending co2 ppm val: " + String(co2_ppm));
     if (!_co2_feed->publish(co2_ppm)) {
       LOG_ERROR("Failed to publish co2 ppm value");
       return STATUS_FAIL;
@@ -139,6 +140,8 @@ status_t Sensors::publish_co2() {
 status_t Sensors::update_bme280_values() {
     air_temp_celsius = bme.getTemperature();
 
+    LOG_INFO("Air Temp is: " + String(air_temp_celsius));
+
     return STATUS_OK;
 }
 
@@ -148,7 +151,7 @@ status_t Sensors::publish_air_temp() {
         return STATUS_FAIL;
     }
 
-    LOG_INFO("\nSending air temp val: %f", air_temp_celsius);
+    LOG_INFO("\nSending air temp val: " + String(air_temp_celsius));
     if (!_air_temp_feed->publish(air_temp_celsius)) {
         LOG_ERROR("Failed to publish air temp value");
         return STATUS_FAIL;
@@ -171,7 +174,7 @@ status_t Sensors::publish_soc() {
         return STATUS_FAIL;
     }
 
-    LOG_INFO("Sending soc val: %f", battery_soc_percent);
+    LOG_INFO("Sending soc val: " + String(battery_soc_percent));
     if (!_soc_feed->publish(battery_soc_percent)) {
         LOG_ERROR("Failed to publish soc value");
         return STATUS_FAIL;
@@ -187,7 +190,7 @@ status_t Sensors::publish_cell_voltage() {
         return STATUS_FAIL;
     }
 
-    LOG_INFO("\nSending cell voltage val: %f", battery_voltage_mv);
+    LOG_INFO("\nSending cell voltage val: " + String(battery_voltage_mv));
     if (!_cell_voltage_feed->publish(battery_voltage_mv)) {
         LOG_ERROR("Failed to publish cell voltage feed");
         return STATUS_FAIL;
@@ -221,7 +224,7 @@ status_t Sensors::bme280_init()
   LOG_INFO("Setting up bme280");
   for (setupRetries = 0; setupRetries < NUM_SETUP_RETRIES; setupRetries++) {
     if (bme.begin() != BME280::eStatusOK) {
-      LOG_WARN("bme begin failed: %s", bme_operate_status_to_string(bme.lastOperateStatus).c_str());
+      LOG_WARN("bme begin failed: " + bme_operate_status_to_string(bme.lastOperateStatus));
       delay(500);
     } else {
       break;
@@ -295,6 +298,7 @@ status_t Sensors::gg_init()
 String Sensors::status_to_string(status_t status) {
   switch(status) {
       case STATUS_OK:    return "Everything ok"; break;
+      case STATUS_INVALID_PARAMS: return "Invalid Params"; break;
       case STATUS_FAIL:  return "Failure"; break;
       default: return "Unknown status"; break;
   }

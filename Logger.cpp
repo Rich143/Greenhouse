@@ -24,15 +24,15 @@ status_t Logger::enableMqttLogging(Adafruit_MQTT_Publish *loggingFeed) {
     _mqttEnabled = true;
 }
 
-status_t Logger::LogFormatted(LogLevel level, const char *fmt, ...) {
-    va_list pargs;
+//status_t Logger::LogFormatted(LogLevel level, const char *fmt, ...) {
+    ////va_list pargs;
 
-    va_start(pargs, fmt);
-    vsnprintf(_logFormatBuffer, LOG_FORMAT_BUFFER_LEN, fmt, pargs);
-    va_end(pargs);
+    ////va_start(pargs, fmt);
+    ////vsnprintf(_logFormatBuffer, LOG_FORMAT_BUFFER_LEN, fmt, pargs);
+    ////va_end(pargs);
 
-    return Log(level, _logFormatBuffer);
-}
+    //return Log(level, fmt);
+//}
 
 status_t Logger::Log(LogLevel level, String msg) {
     for (int output = 0; output < NUM_LOGGING_OUTPUTS; ++output) {

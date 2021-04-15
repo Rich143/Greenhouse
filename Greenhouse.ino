@@ -88,7 +88,7 @@ void setup() {
   LOG_INFO("Starting up...");
 
   // Connect to WiFi access point.
-  LOG_INFO("Connecting to %s", WLAN_SSID);
+  LOG_INFO("Connecting to " + String(WLAN_SSID));
 
   WiFi.begin(WLAN_SSID, WLAN_PASS);
   for (int i = 0; i < NUM_SETUP_RETRIES; i++) {
@@ -102,7 +102,7 @@ void setup() {
   Serial.println();
 
   WiFi.localIP();
-  LOG_INFO("WiFi connected, IP address: %s", WiFi.localIP().toString().c_str());
+  LOG_INFO("WiFi connected, IP address: " + WiFi.localIP().toString());
 
   client.setCACert(test_root_ca);
 
@@ -118,7 +118,7 @@ void setup() {
   LOG_INFO("Initializing sensors");
   status_t rc = gSensors.init();
   if (rc != STATUS_OK) {
-    LOG_ERROR("Error initing sensors: %s", Sensors::status_to_string(rc).c_str());
+    LOG_ERROR("Error initing sensors: " + Sensors::status_to_string(rc));
     errorHandler();
   }
 
@@ -138,18 +138,18 @@ void loop() {
   LOG_INFO("Reading from sensors");
   status_t rc = gSensors.update_all_values();
   if (rc != STATUS_OK) {
-    LOG_ERROR("Error reading sensors: %s", Sensors::status_to_string(rc).c_str());
+    LOG_ERROR("Error reading sensors: " + Sensors::status_to_string(rc));
     errorHandler();
   }
 
   LOG_INFO("Publishing sensor data");
   rc = gSensors.publish_all_feeds();
   if (rc != STATUS_OK) {
-    LOG_ERROR("Error publishing sensor data: %s", Sensors::status_to_string(rc).c_str());
+    LOG_ERROR("Error publishing sensor data: " + Sensors::status_to_string(rc));
     errorHandler();
   }
 
-  LOG_INFO("Going to sleep for (seconds): %d", TIME_TO_SLEEP);
+  LOG_INFO("Going to sleep for (seconds): " + String(TIME_TO_SLEEP));
   esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
   esp_deep_sleep_start();
 }
