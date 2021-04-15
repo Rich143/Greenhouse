@@ -1,5 +1,6 @@
 #include "Arduino.h"
 #include "Power_Controller.h"
+#include "Logger.h"
 
 #define PIN_9V_12V_ENABLE 26
 #define PIN_3V3_ENABLE 23
@@ -11,7 +12,7 @@ PowerController::PowerController()
     initialized = false;
 }
 
-power_controller_status_t PowerController::setPowerChannel(PowerChannel channel,
+status_t PowerController::setPowerChannel(PowerChannel channel,
                                                            bool enable)
 {
     switch (channel) {
@@ -22,21 +23,20 @@ power_controller_status_t PowerController::setPowerChannel(PowerChannel channel,
             digitalWrite(PIN_9V_12V_ENABLE, enable);
             break;
         default:
-            Serial.print("Set Power Channel: invalid channel ");
-            Serial.println(channel);
-            return POWER_CONTROLLER_INVALID_PARAMS;
+            LOG_WARN("Set Power Channel: invalid channel %d", channel);
+            return STATUS_INVALID_PARAMS;
             break;
     }
 
-    return POWER_CONTROLLER_OK;
+    return STATUS_OK;
 }
 
-power_controller_status_t PowerController::init()
+status_t PowerController::init()
 {
     if (!initialized) {
         pinMode(PIN_9V_12V_ENABLE, OUTPUT);
         pinMode(PIN_3V3_ENABLE, OUTPUT);
     }
 
-    return POWER_CONTROLLER_OK;
+    return STATUS_OK;
 }

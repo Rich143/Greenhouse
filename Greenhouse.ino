@@ -16,6 +16,8 @@
 #include "config.h"
 #include "Secrets.h"
 #include "Sensors.h"
+#include "Status.h"
+#include "Logger.h"
 
 /************************* Deep Sleep *********************************/
 
@@ -28,7 +30,7 @@
 
 /************ Global State ******************/
 
-RTC_DATA_ATTR int bootCount = 0;
+/*RTC_DATA_ATTR int bootCount = 0;*/
 
 WiFiClientSecure client;
 
@@ -67,6 +69,7 @@ Adafruit_MQTT_Publish soc_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/fee
 Adafruit_MQTT_Publish cell_voltage_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/battery-cell-voltage");
 Adafruit_MQTT_Publish co2_ppm_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/co2");
 Adafruit_MQTT_Publish air_temp_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/air-temperature");
+Adafruit_MQTT_Publish logging_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/greenhouse-log");
 
 /*************************** Sketch Code ************************************/
 
@@ -82,15 +85,10 @@ void setup() {
   Serial.begin(115200);
   delay(10);
 
-  Serial.println("Starting up...");
-  Serial.print("Boot count is: ");
-  Serial.println(bootCount);
-  bootCount++;
+  LOG_INFO("Starting up...");
 
   // Connect to WiFi access point.
-  Serial.println(); Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(WLAN_SSID);
+  LOG_INFO("Connecting to %s", WLAN_SSID);
 
   WiFi.begin(WLAN_SSID, WLAN_PASS);
   for (int i = 0; i < NUM_SETUP_RETRIES; i++) {
@@ -103,20 +101,28 @@ void setup() {
   }
   Serial.println();
 
-  Serial.println("WiFi connected");
-  Serial.println("IP address: "); Serial.println(WiFi.localIP());
+  WiFi.localIP();
+  LOG_INFO("WiFi connected, IP address: %s", WiFi.localIP().toString().c_str());
 
   client.setCACert(test_root_ca);
 
-  Serial.println("Initializing sensors");
-  sensor_status_t rc = gSensors.init();
-  if (rc != SENSOR_OK) {
-    Serial.print("Error initing sensors: ");
-    Serial.println(Sensors::status_to_string(rc));
+  MQTT_connect();
+
+  // MQTT is connected, we can start logging over MQTT
+  gLogger.enableMqttLogging(&logging_feed);
+
+
+  // Force send one MQTT Log message by logging as error
+  LOG_ERROR("Starting Up");
+
+  LOG_INFO("Initializing sensors");
+  status_t rc = gSensors.init();
+  if (rc != STATUS_OK) {
+    LOG_ERROR("Error initing sensors: %s", Sensors::status_to_string(rc).c_str());
     errorHandler();
   }
 
-  Serial.println("Setting sensor mqtt feeds");
+  LOG_INFO("Setting sensor mqtt feeds");
   gSensors.set_soc_feed(&soc_feed);
   gSensors.set_cell_voltage_feed(&cell_voltage_feed);
   gSensors.set_co2_feed(&co2_ppm_feed);
@@ -129,24 +135,21 @@ void loop() {
   // function definition further below.
   MQTT_connect();
 
-  Serial.println("Reading from sensors");
-  sensor_status_t rc = gSensors.update_all_values();
-  if (rc != SENSOR_OK) {
-    Serial.print("Error reading sensors: ");
-    Serial.println(Sensors::status_to_string(rc));
+  LOG_INFO("Reading from sensors");
+  status_t rc = gSensors.update_all_values();
+  if (rc != STATUS_OK) {
+    LOG_ERROR("Error reading sensors: %s", Sensors::status_to_string(rc).c_str());
     errorHandler();
   }
 
-  Serial.println("Publishing sensor data");
+  LOG_INFO("Publishing sensor data");
   rc = gSensors.publish_all_feeds();
-  if (rc != SENSOR_OK) {
-    Serial.print("Error publishing sensor data: ");
-    Serial.println(Sensors::status_to_string(rc));
+  if (rc != STATUS_OK) {
+    LOG_ERROR("Error publishing sensor data: %s", Sensors::status_to_string(rc).c_str());
     errorHandler();
   }
 
-  Serial.print("Going to sleep for (seconds): ");
-  Serial.println(TIME_TO_SLEEP);
+  LOG_INFO("Going to sleep for (seconds): %d", TIME_TO_SLEEP);
   esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
   esp_deep_sleep_start();
 }
@@ -161,18 +164,23 @@ void MQTT_connect() {
     return;
   }
 
-  Serial.print("Connecting to MQTT... ");
+  LOG_INFO("Connecting to MQTT... ");
 
   uint8_t retries = 3;
   while ((ret = mqtt.connect()) != 0) { // connect will return 0 for connected
-       Serial.println(mqtt.connectErrorString(ret));
-       Serial.println("Retrying MQTT connection in 5 seconds...");
+       int len = strlen_P((const char *)mqtt.connectErrorString(ret));
+       char buf[len];
+       strncpy_P(buf, (const char *)mqtt.connectErrorString(ret), len);
+
+       LOG_WARN(buf);
+       LOG_INFO("Retrying MQTT connection in 5 seconds...");
        mqtt.disconnect();
        delay(5000);  // wait 5 seconds
        retries--;
        if (retries == 0) {
+         LOG_ERROR("Failed to connect to MQTT");
          errorHandler();
        }
   }
-  Serial.println("MQTT Connected!");
+  LOG_INFO("MQTT Connected!");
 }

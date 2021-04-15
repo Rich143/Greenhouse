@@ -1,11 +1,7 @@
 #ifndef POWER_CONTROLLER_H_HV0ZKTDT
 #define POWER_CONTROLLER_H_HV0ZKTDT
 
-enum power_controller_status_t {
-    POWER_CONTROLLER_OK,
-    POWER_CONTROLLER_INVALID_PARAMS,
-    POWER_CONTROLLER_FAIL,
-};
+#include "Status.h"
 
 class PowerController {
     public:
@@ -18,9 +14,9 @@ class PowerController {
 
     PowerController();
 
-    power_controller_status_t init();
+    status_t init();
 
-    power_controller_status_t setPowerChannel(PowerChannel channel, bool enable);
+    status_t setPowerChannel(PowerChannel channel, bool enable);
 
     private:
 

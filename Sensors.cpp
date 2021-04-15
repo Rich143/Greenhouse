@@ -6,6 +6,8 @@
 
 #include "Sensors.h"
 #include "Power_Controller.h"
+#include "Status.h"
+#include "Logger.h"
 
 // Sensor setup number retries
 #define NUM_SETUP_RETRIES 5
@@ -14,194 +16,184 @@
 
 Sensors gSensors;
 
-sensor_status_t Sensors::init() {
-    sensor_status_t rc;
+status_t Sensors::init() {
+    status_t rc;
 
     // turn on the power
-    power_controller_status_t power_rc = gPowerController.init();
-    if (power_rc != POWER_CONTROLLER_OK) {
-      return SENSOR_FAIL;
+    rc = gPowerController.init();
+    if (rc != STATUS_OK) {
+      return STATUS_FAIL;
     }
 
-    power_rc = gPowerController.setPowerChannel(PowerController::POWER_CHANNEL_3V3, true);
-    if (rc != POWER_CONTROLLER_OK) {
-      return SENSOR_FAIL;
+    rc = gPowerController.setPowerChannel(PowerController::POWER_CHANNEL_3V3, true);
+    if (rc != STATUS_OK) {
+      return rc;
     }
 
     rc = bme280_init();
-    if (rc != SENSOR_OK) {
+    if (rc != STATUS_OK) {
         return rc;
     }
 
     rc = ccs811_init();
-    if (rc != SENSOR_OK) {
+    if (rc != STATUS_OK) {
         return rc;
     }
 
     rc = gg_init();
-    if (rc != SENSOR_OK) {
+    if (rc != STATUS_OK) {
         return rc;
     }
 
-    return SENSOR_OK;
+    return STATUS_OK;
 }
 
-sensor_status_t Sensors::update_all_values()
+status_t Sensors::update_all_values()
 {
-    sensor_status_t rc;
+    status_t rc;
 
     rc = update_ccs811_values();
-    if (rc != SENSOR_OK) {
+    if (rc != STATUS_OK) {
         return rc;
     }
 
     rc = update_bme280_values();
-    if (rc != SENSOR_OK) {
+    if (rc != STATUS_OK) {
         return rc;
     }
 
     rc = update_gg_values();
-    if (rc != SENSOR_OK) {
+    if (rc != STATUS_OK) {
         return rc;
     }
 
-    return SENSOR_OK;
+    return STATUS_OK;
 }
 
-sensor_status_t Sensors::publish_all_feeds() {
-    sensor_status_t rc;
+status_t Sensors::publish_all_feeds() {
+    status_t rc;
 
     rc = publish_co2();
-    if (rc != SENSOR_OK) {
+    if (rc != STATUS_OK) {
         return rc;
     }
 
     rc = publish_air_temp();
-    if (rc != SENSOR_OK) {
+    if (rc != STATUS_OK) {
         return rc;
     }
 
     rc = publish_soc();
-    if (rc != SENSOR_OK) {
+    if (rc != STATUS_OK) {
         return rc;
     }
 
     rc = publish_cell_voltage();
-    if (rc != SENSOR_OK) {
+    if (rc != STATUS_OK) {
         return rc;
     }
 
-    return SENSOR_OK;
+    return STATUS_OK;
 }
 
-sensor_status_t Sensors::update_ccs811_values() {
+status_t Sensors::update_ccs811_values() {
     CCS811.writeBaseLine(CCS811_BASELINE);
 
-    Serial.println("Waiting for CCS811 data to be ready");
+    LOG_INFO("Waiting for CCS811 data to be ready");
     int num_tries;
     //for (num_tries = 0; num_tries < NUM_SETUP_RETRIES; ++num_tries) {
     while (1) {
         if (!CCS811.checkDataReady()) {
-            Serial.print(".");
             delay(500);
         } else {
           break;
         }
     }
-    Serial.println();
 
     if (num_tries == NUM_SETUP_RETRIES) {
-        Serial.println("Failed to read ccs811 values, data not ready");
-        return SENSOR_FAIL;
+        LOG_ERROR("Failed to read ccs811 values, data not ready");
+        return STATUS_FAIL;
     }
 
     co2_ppm = CCS811.getCO2PPM();
 
-    return SENSOR_OK;
+    return STATUS_OK;
 }
 
-sensor_status_t Sensors::publish_co2() {
+status_t Sensors::publish_co2() {
     if (_co2_feed == nullptr) {
-        Serial.println("CO2 Feed not set");
-        return SENSOR_FAIL;
+        LOG_ERROR("CO2 Feed not set");
+        return STATUS_FAIL;
     }
 
-    Serial.print("Sending co2 ppm val ");
-    Serial.print(co2_ppm);
-    Serial.print("...");
+    LOG_INFO("Sending co2 ppm val: %f", co2_ppm);
     if (!_co2_feed->publish(co2_ppm)) {
-      Serial.println("Failed");
-      return SENSOR_FAIL;
+      LOG_ERROR("Failed to publish co2 ppm value");
+      return STATUS_FAIL;
     } else {
-      Serial.println("OK!");
-      return SENSOR_OK;
+      LOG_INFO("OK!");
+      return STATUS_OK;
     }
 }
 
-sensor_status_t Sensors::update_bme280_values() {
+status_t Sensors::update_bme280_values() {
     air_temp_celsius = bme.getTemperature();
 
-    return SENSOR_OK;
+    return STATUS_OK;
 }
 
-sensor_status_t Sensors::publish_air_temp() {
+status_t Sensors::publish_air_temp() {
     if (_air_temp_feed == nullptr) {
-        Serial.println("Air Temp Feed not set");
-        return SENSOR_FAIL;
+        LOG_ERROR("Air Temp Feed not set");
+        return STATUS_FAIL;
     }
 
-    Serial.print("\nSending air temp val ");
-    Serial.print(air_temp_celsius);
-    Serial.print("...");
+    LOG_INFO("\nSending air temp val: %f", air_temp_celsius);
     if (!_air_temp_feed->publish(air_temp_celsius)) {
-        Serial.println("Failed");
-        return SENSOR_FAIL;
+        LOG_ERROR("Failed to publish air temp value");
+        return STATUS_FAIL;
     } else {
-        Serial.println("OK!");
-        return SENSOR_OK;
+        LOG_INFO("OK!");
+        return STATUS_OK;
     }
 }
 
-sensor_status_t Sensors::update_gg_values() {
+status_t Sensors::update_gg_values() {
     battery_soc_percent = double(gg.cellRemainingPercent10()) / 10;
     battery_voltage_mv = double(gg.cellVoltage_mV()) / 1000.0;
 
-    return SENSOR_OK;
+    return STATUS_OK;
 }
 
-sensor_status_t Sensors::publish_soc() {
+status_t Sensors::publish_soc() {
     if (_soc_feed == nullptr) {
-        Serial.println("SOC Feed not set");
-        return SENSOR_FAIL;
+        LOG_ERROR("SOC Feed not set");
+        return STATUS_FAIL;
     }
 
-    Serial.print("\nSending soc val ");
-    Serial.print(battery_soc_percent);
-    Serial.print("...");
+    LOG_INFO("Sending soc val: %f", battery_soc_percent);
     if (!_soc_feed->publish(battery_soc_percent)) {
-        Serial.println("Failed");
-        return SENSOR_FAIL;
+        LOG_ERROR("Failed to publish soc value");
+        return STATUS_FAIL;
     } else {
-        Serial.println("OK!");
-        return SENSOR_OK;
+        LOG_INFO("OK!");
+        return STATUS_OK;
     }
 }
 
-sensor_status_t Sensors::publish_cell_voltage() {
+status_t Sensors::publish_cell_voltage() {
     if (_cell_voltage_feed == nullptr) {
-        Serial.println("Cell Voltage Feed not set");
-        return SENSOR_FAIL;
+        LOG_ERROR("Cell Voltage Feed not set");
+        return STATUS_FAIL;
     }
 
-    Serial.print("\nSending cell voltage val ");
-    Serial.print(battery_voltage_mv);
-    Serial.print("...");
+    LOG_INFO("\nSending cell voltage val: %f", battery_voltage_mv);
     if (!_cell_voltage_feed->publish(battery_voltage_mv)) {
-        Serial.println("Failed");
-        return SENSOR_FAIL;
+        LOG_ERROR("Failed to publish cell voltage feed");
+        return STATUS_FAIL;
     } else {
-        Serial.println("OK!");
-        return SENSOR_OK;
+        LOG_INFO("OK!");
+        return STATUS_OK;
     }
 }
 
@@ -217,7 +209,7 @@ String Sensors::bme_operate_status_to_string(BME280::eStatus_t eStatus)
   }
 }
 
-sensor_status_t Sensors::bme280_init()
+status_t Sensors::bme280_init()
 {
   int setupRetries;
 
@@ -226,11 +218,10 @@ sensor_status_t Sensors::bme280_init()
 
   bme.reset();
 
-  Serial.println("Setting up bme280");
+  LOG_INFO("Setting up bme280");
   for (setupRetries = 0; setupRetries < NUM_SETUP_RETRIES; setupRetries++) {
     if (bme.begin() != BME280::eStatusOK) {
-      Serial.println("bme begin faild");
-      Serial.println(bme_operate_status_to_string(bme.lastOperateStatus));
+      LOG_WARN("bme begin failed: %s", bme_operate_status_to_string(bme.lastOperateStatus).c_str());
       delay(500);
     } else {
       break;
@@ -238,23 +229,23 @@ sensor_status_t Sensors::bme280_init()
   }
 
   if (setupRetries >= NUM_SETUP_RETRIES) {
-    Serial.println("Gave up setting up bme280");
-    return SENSOR_FAIL;
+    LOG_ERROR("Gave up setting up bme280");
+    return STATUS_FAIL;
   }
 
-  Serial.println("bme init success");
+  LOG_INFO("bme init success");
 
-  return SENSOR_OK;
+  return STATUS_OK;
 }
 
-sensor_status_t Sensors::ccs811_init()
+status_t Sensors::ccs811_init()
 {
   int setupRetries;
 
-  Serial.println("Setting up CCS811");
+  LOG_INFO("Setting up CCS811");
   for (setupRetries = 0; setupRetries < NUM_SETUP_RETRIES; setupRetries++) {
     if (CCS811.begin() != 0) {
-      Serial.println("Failed to init CCS811");
+      LOG_WARN("Failed to init CCS811");
       delay(500);
     } else {
       break;
@@ -262,23 +253,23 @@ sensor_status_t Sensors::ccs811_init()
   }
 
   if (setupRetries >= NUM_SETUP_RETRIES) {
-    Serial.println("Gave up setting up ccs811");
-    return SENSOR_FAIL;
+    LOG_ERROR("Gave up setting up ccs811");
+    return STATUS_FAIL;
   }
 
-  Serial.println("ccs811 init success");
+  LOG_INFO("ccs811 init success");
 
-  return SENSOR_OK;
+  return STATUS_OK;
 }
 
-sensor_status_t Sensors::gg_init()
+status_t Sensors::gg_init()
 {
   int setupRetries;
 
-  Serial.println("Setting up gas gauge");
+  LOG_INFO("Setting up gas gauge");
   for (setupRetries = 0; setupRetries < NUM_SETUP_RETRIES; setupRetries++) {
     if (!gg.begin()) {
-      Serial.println("Failed to init gas gauge");
+      LOG_WARN("Failed to init gas gauge");
       delay(500);
     } else {
       break;
@@ -287,8 +278,8 @@ sensor_status_t Sensors::gg_init()
 
 
   if (setupRetries >= NUM_SETUP_RETRIES) {
-    Serial.println("Gave up setting up ccs811");
-    return SENSOR_FAIL;
+    LOG_ERROR("Gave up setting up gas gauge");
+    return STATUS_FAIL;
   }
 
   gg.setCellCapacity(LC709203F_APA_2000MAH);
@@ -296,51 +287,39 @@ sensor_status_t Sensors::gg_init()
   gg.setAlarmVoltage(3.4);
   gg.setCellProfile( LC709203_NOM3p7_Charge4p2 ) ;
 
-  Serial.println("ccs811 init success");
+  LOG_INFO("ccs811 init success");
 
-  return SENSOR_OK;
+  return STATUS_OK;
 }
 
-String Sensors::status_to_string(sensor_status_t status) {
+String Sensors::status_to_string(status_t status) {
   switch(status) {
-      case SENSOR_OK:    return "Everything ok"; break;
-      case SENSOR_FAIL:  return "Failure"; break;
+      case STATUS_OK:    return "Everything ok"; break;
+      case STATUS_FAIL:  return "Failure"; break;
       default: return "Unknown status"; break;
   }
 }
 
-sensor_status_t Sensors::set_soc_feed(Adafruit_MQTT_Publish *soc_feed) {
-    //Serial.print("Setting soc feed: ");
-    //Serial.println((uint32_t)soc_feed);
-
+status_t Sensors::set_soc_feed(Adafruit_MQTT_Publish *soc_feed) {
     _soc_feed = soc_feed;
 
-    return SENSOR_OK;
+    return STATUS_OK;
 }
 
-sensor_status_t Sensors::set_cell_voltage_feed(Adafruit_MQTT_Publish *cell_voltage_feed) {
-    //Serial.print("Setting cell voltage feed: ");
-    //Serial.println((uint32_t)cell_voltage_feed);
-
+status_t Sensors::set_cell_voltage_feed(Adafruit_MQTT_Publish *cell_voltage_feed) {
     _cell_voltage_feed = cell_voltage_feed;
 
-    return SENSOR_OK;
+    return STATUS_OK;
 }
 
-sensor_status_t Sensors::set_co2_feed(Adafruit_MQTT_Publish *co2_feed) {
-    //Serial.print("Setting co2 feed: ");
-    //Serial.println((uint32_t)co2_feed);
-
+status_t Sensors::set_co2_feed(Adafruit_MQTT_Publish *co2_feed) {
     _co2_feed = co2_feed;
 
-    return SENSOR_OK;
+    return STATUS_OK;
 }
 
-sensor_status_t Sensors::set_air_temp_feed(Adafruit_MQTT_Publish *air_temp_feed) {
-    //Serial.print("Setting air temp feed: ");
-    //Serial.println((uint32_t)air_temp_feed);
-
+status_t Sensors::set_air_temp_feed(Adafruit_MQTT_Publish *air_temp_feed) {
     _air_temp_feed = air_temp_feed;
 
-    return SENSOR_OK;
+    return STATUS_OK;
 }
