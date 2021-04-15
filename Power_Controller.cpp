@@ -5,6 +5,9 @@
 #define PIN_9V_12V_ENABLE 26
 #define PIN_3V3_ENABLE 23
 
+/// Time for power to turn on and stabilize. 20 ms is just a guess
+#define POWER_ON_DELAY_MS 20
+
 PowerController gPowerController;
 
 PowerController::PowerController()
@@ -23,11 +26,12 @@ status_t PowerController::setPowerChannel(PowerChannel channel,
             digitalWrite(PIN_9V_12V_ENABLE, enable);
             break;
         default:
-            LOG_WARN("Set Power Channel: invalid channel %d", channel);
+            LOG_WARN("Set Power Channel: invalid channel " + String(channel));
             return STATUS_INVALID_PARAMS;
             break;
     }
 
+    delay(POWER_ON_DELAY_MS);
     return STATUS_OK;
 }
 
