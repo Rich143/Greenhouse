@@ -10,10 +10,10 @@
 
 #define LOG_FORMAT_BUFFER_LEN 200
 
-#define LOG_ERROR(msg, ...) gLogger.Log(Logger::ERROR, msg)
-#define LOG_WARN(msg, ...) gLogger.Log(Logger::WARN, msg)
-#define LOG_INFO(msg, ...) gLogger.Log(Logger::INFO, msg)
-#define LOG_DEBUG(msg, ...) gLogger.Log(Logger::DEBUG, msg)
+#define LOG_ERROR(msg) gLogger.Log(Logger::ERROR, msg)
+#define LOG_WARN(msg) gLogger.Log(Logger::WARN, msg)
+#define LOG_INFO(msg) gLogger.Log(Logger::INFO, msg)
+#define LOG_DEBUG(msg) gLogger.Log(Logger::DEBUG, msg)
 
 //#define LOG_ERROR(msg, ...) gLogger.LogFormatted(Logger::ERROR, msg, ##__VA_ARGS__)
 //#define LOG_WARN(msg, ...) gLogger.LogFormatted(Logger::WARN, msg, ##__VA_ARGS__)

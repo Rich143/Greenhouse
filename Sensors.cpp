@@ -67,6 +67,11 @@ status_t Sensors::update_all_values()
         return rc;
     }
 
+    rc = update_thermistor_values();
+    if (rc != STATUS_OK) {
+        return rc;
+    }
+
     return STATUS_OK;
 }
 
@@ -93,6 +98,17 @@ status_t Sensors::publish_all_feeds() {
         return rc;
     }
 
+    rc = publish_soil_temp();
+    if (rc != STATUS_OK) {
+        return rc;
+    }
+
+    return STATUS_OK;
+}
+
+status_t Sensors::update_thermistor_values() {
+    soil_temperature_celsius = thermistor.readTemperature();
+
     return STATUS_OK;
 }
 
@@ -116,7 +132,6 @@ status_t Sensors::update_ccs811_values() {
     }
 
     co2_ppm = CCS811.getCO2PPM();
-    LOG_INFO("Co2 ppm is: " + String(co2_ppm));
 
     return STATUS_OK;
 }
@@ -140,8 +155,6 @@ status_t Sensors::publish_co2() {
 status_t Sensors::update_bme280_values() {
     air_temp_celsius = bme.getTemperature();
 
-    LOG_INFO("Air Temp is: " + String(air_temp_celsius));
-
     return STATUS_OK;
 }
 
@@ -154,6 +167,22 @@ status_t Sensors::publish_air_temp() {
     LOG_INFO("\nSending air temp val: " + String(air_temp_celsius));
     if (!_air_temp_feed->publish(air_temp_celsius)) {
         LOG_ERROR("Failed to publish air temp value");
+        return STATUS_FAIL;
+    } else {
+        LOG_INFO("OK!");
+        return STATUS_OK;
+    }
+}
+
+status_t Sensors::publish_soil_temp() {
+    if (_soil_temp_feed == nullptr) {
+        LOG_ERROR("Soil Temp Feed not set");
+        return STATUS_FAIL;
+    }
+
+    LOG_INFO("\nSending soil temp val: " + String(soil_temperature_celsius));
+    if (!_soil_temp_feed->publish(soil_temperature_celsius)) {
+        LOG_ERROR("Failed to publish soil temp value");
         return STATUS_FAIL;
     } else {
         LOG_INFO("OK!");
@@ -324,6 +353,12 @@ status_t Sensors::set_co2_feed(Adafruit_MQTT_Publish *co2_feed) {
 
 status_t Sensors::set_air_temp_feed(Adafruit_MQTT_Publish *air_temp_feed) {
     _air_temp_feed = air_temp_feed;
+
+    return STATUS_OK;
+}
+
+status_t Sensors::set_soil_temp_feed(Adafruit_MQTT_Publish *soil_temperature_feed) {
+    _soil_temp_feed = soil_temperature_feed;
 
     return STATUS_OK;
 }

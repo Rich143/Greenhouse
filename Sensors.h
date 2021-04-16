@@ -7,6 +7,7 @@
 #include "DFRobot_CCS811.h"
 #include "BME280.h"
 #include "Status.h"
+#include "Thermistor.h"
 
 class Sensors {
     public:
@@ -21,6 +22,7 @@ class Sensors {
     status_t set_cell_voltage_feed(Adafruit_MQTT_Publish *cell_voltage_feed);
     status_t set_co2_feed(Adafruit_MQTT_Publish *co2_feed);
     status_t set_air_temp_feed(Adafruit_MQTT_Publish *air_temp_feed);
+    status_t set_soil_temp_feed(Adafruit_MQTT_Publish *soil_temperature_feed);
 
     /**
       * @brief Publishes current sensor data to the MQTT feeds
@@ -38,11 +40,13 @@ class Sensors {
     status_t update_ccs811_values();
     status_t update_bme280_values();
     status_t update_gg_values();
+    status_t update_thermistor_values();
 
     status_t publish_co2();
     status_t publish_air_temp();
     status_t publish_soc();
     status_t publish_cell_voltage();
+    status_t publish_soil_temp();
 
     String bme_operate_status_to_string(BME280::eStatus_t eStatus);
 
@@ -50,11 +54,13 @@ class Sensors {
     double air_temp_celsius;
     double battery_soc_percent;
     double battery_voltage_mv;
+    double soil_temperature_celsius;
 
-    Adafruit_MQTT_Publish *_soc_feed;
-    Adafruit_MQTT_Publish *_cell_voltage_feed;
-    Adafruit_MQTT_Publish *_co2_feed;
-    Adafruit_MQTT_Publish *_air_temp_feed;
+    Adafruit_MQTT_Publish *_soc_feed = nullptr;
+    Adafruit_MQTT_Publish *_cell_voltage_feed = nullptr;
+    Adafruit_MQTT_Publish *_co2_feed = nullptr;
+    Adafruit_MQTT_Publish *_air_temp_feed = nullptr;
+    Adafruit_MQTT_Publish *_soil_temp_feed = nullptr;
 
     // Gas Gauge
     LC709203F gg;
@@ -64,6 +70,9 @@ class Sensors {
 
     // Weather monitor sensor
     BME280 bme;
+
+    // Soil temperature thermistor
+    Thermistor thermistor;
 };
 
 // global sensors instance
