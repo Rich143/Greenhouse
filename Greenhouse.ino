@@ -70,6 +70,7 @@ Adafruit_MQTT_Publish cell_voltage_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERN
 Adafruit_MQTT_Publish co2_ppm_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/co2");
 Adafruit_MQTT_Publish air_temp_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/air-temperature");
 Adafruit_MQTT_Publish soil_temperature_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/soil-temperature");
+Adafruit_MQTT_Publish soil_moisture_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/soil-moisture");
 Adafruit_MQTT_Publish logging_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/greenhouse-log");
 
 /*************************** Sketch Code ************************************/
@@ -112,10 +113,6 @@ void setup() {
   // MQTT is connected, we can start logging over MQTT
   gLogger.enableMqttLogging(&logging_feed);
 
-
-  // Force send one MQTT Log message by logging as error
-  LOG_ERROR("Starting Up");
-
   LOG_INFO("Initializing sensors");
   status_t rc = gSensors.init();
   if (rc != STATUS_OK) {
@@ -129,6 +126,7 @@ void setup() {
   gSensors.set_co2_feed(&co2_ppm_feed);
   gSensors.set_air_temp_feed(&air_temp_feed);
   gSensors.set_soil_temp_feed(&soil_temperature_feed);
+  gSensors.set_soil_moisture_feed(&soil_moisture_feed);
 }
 
 void loop() {

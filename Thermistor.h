@@ -35,7 +35,7 @@ class Thermistor {
      */
     double readTemperature();
 
-    private:
+    protected:
 
     /**
      * @brief Read the raw thermistor ADC value

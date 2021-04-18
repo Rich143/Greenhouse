@@ -2,7 +2,7 @@
 #include "Logger.h"
 
 // Number of ADC samples to average for each reading
-#define THERMISTOR_NUM_ADC_SAMPLES 5
+#define THERMISTOR_NUM_ADC_SAMPLES 10
 // The voltage input to the thermistor voltage divider, in volts
 #define THERMISTOR_VOLTAGE_INPUT_VOLTS (3.3f)
 

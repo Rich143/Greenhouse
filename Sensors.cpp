@@ -12,7 +12,14 @@
 // Sensor setup number retries
 #define NUM_SETUP_RETRIES 5
 
-#define CCS811_BASELINE 0x3480
+//#define ENABLE_CCS811
+
+// CCS811 has a preheat time of up to 15 seconds
+#define CCS811_PREHEAT_TIME_MS (15*1000)
+#define CCS811_WAIT_TIME_MS (500)
+#define CCS811_MAX_WAITS (CCS811_PREHEAT_TIME_MS / CCS811_WAIT_TIME_MS)
+
+#define CCS811_BASELINE 0xA477
 
 Sensors gSensors;
 
@@ -72,6 +79,11 @@ status_t Sensors::update_all_values()
         return rc;
     }
 
+    rc = update_soil_moisture_values();
+    if (rc != STATUS_OK) {
+        return rc;
+    }
+
     return STATUS_OK;
 }
 
@@ -103,6 +115,11 @@ status_t Sensors::publish_all_feeds() {
         return rc;
     }
 
+    rc = publish_soil_moisture();
+    if (rc != STATUS_OK) {
+        return rc;
+    }
+
     return STATUS_OK;
 }
 
@@ -113,14 +130,18 @@ status_t Sensors::update_thermistor_values() {
 }
 
 status_t Sensors::update_ccs811_values() {
+#ifdef ENABLE_CCS811
     CCS811.writeBaseLine(CCS811_BASELINE);
+
+    LOG_INFO("Waiting for ccs811 to warm up");
+    delay(15000);
 
     LOG_INFO("Waiting for CCS811 data to be ready");
     int num_tries;
-    //for (num_tries = 0; num_tries < NUM_SETUP_RETRIES; ++num_tries) {
+    //for (num_tries = 0; num_tries < CCS811_MAX_WAITS; ++num_tries) {
     while (1) {
         if (!CCS811.checkDataReady()) {
-            delay(500);
+            delay(CCS811_WAIT_TIME_MS);
         } else {
           break;
         }
@@ -133,10 +154,13 @@ status_t Sensors::update_ccs811_values() {
 
     co2_ppm = CCS811.getCO2PPM();
 
+#endif
+
     return STATUS_OK;
 }
 
 status_t Sensors::publish_co2() {
+#ifdef ENABLE_CCS811
     if (_co2_feed == nullptr) {
         LOG_ERROR("CO2 Feed not set");
         return STATUS_FAIL;
@@ -150,6 +174,9 @@ status_t Sensors::publish_co2() {
       LOG_INFO("OK!");
       return STATUS_OK;
     }
+#else
+    return STATUS_OK;
+#endif
 }
 
 status_t Sensors::update_bme280_values() {
@@ -222,6 +249,22 @@ status_t Sensors::publish_cell_voltage() {
     LOG_INFO("\nSending cell voltage val: " + String(battery_voltage_mv));
     if (!_cell_voltage_feed->publish(battery_voltage_mv)) {
         LOG_ERROR("Failed to publish cell voltage feed");
+        return STATUS_FAIL;
+    } else {
+        LOG_INFO("OK!");
+        return STATUS_OK;
+    }
+}
+
+status_t Sensors::publish_soil_moisture() {
+    if (_soil_moisture_feed == nullptr) {
+        LOG_ERROR("Soil Moisture Feed not set");
+        return STATUS_FAIL;
+    }
+
+    LOG_INFO("\nSending soil moisture val: " + String(soil_moisture_percent));
+    if (!_soil_moisture_feed->publish(soil_moisture_percent)) {
+        LOG_ERROR("Failed to publish soil moisture feed");
         return STATUS_FAIL;
     } else {
         LOG_INFO("OK!");
@@ -333,6 +376,12 @@ String Sensors::status_to_string(status_t status) {
   }
 }
 
+status_t Sensors::update_soil_moisture_values() {
+    soil_moisture_percent = soilMoisture.soilMoisturePercent();
+
+    return STATUS_OK;
+}
+
 status_t Sensors::set_soc_feed(Adafruit_MQTT_Publish *soc_feed) {
     _soc_feed = soc_feed;
 
@@ -359,6 +408,12 @@ status_t Sensors::set_air_temp_feed(Adafruit_MQTT_Publish *air_temp_feed) {
 
 status_t Sensors::set_soil_temp_feed(Adafruit_MQTT_Publish *soil_temperature_feed) {
     _soil_temp_feed = soil_temperature_feed;
+
+    return STATUS_OK;
+}
+
+status_t Sensors::set_soil_moisture_feed(Adafruit_MQTT_Publish *soil_moisture_feed) {
+    _soil_moisture_feed = soil_moisture_feed;
 
     return STATUS_OK;
 }

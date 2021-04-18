@@ -45,7 +45,7 @@ class Logger {
 
     status_t enableMqttLogging(Adafruit_MQTT_Publish *loggingFeed);
 
-    private:
+    protected:
 
     bool canLog(LogLevel level, LoggingOutputs output);
 

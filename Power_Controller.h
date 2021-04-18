@@ -18,7 +18,7 @@ class PowerController {
 
     status_t setPowerChannel(PowerChannel channel, bool enable);
 
-    private:
+    protected:
 
     bool initialized;
 };
