@@ -21,6 +21,8 @@
 
 #define CCS811_BASELINE 0xA477
 
+#define WATERLEVEL_INVALID_MEASUREMENT (-1)
+
 Sensors gSensors;
 
 status_t Sensors::init() {
@@ -84,6 +86,19 @@ status_t Sensors::update_all_values()
         return rc;
     }
 
+    rc = update_water_level_values();
+    if (rc != STATUS_OK) {
+        if (rc == STATUS_TIMEOUT) {
+            // timeouts aren't an error, just log it
+            LOG_WARN("Didn't get valid water level measurement");
+            return STATUS_OK;
+        } else {
+            return rc;
+        }
+    }
+
+    delay(1000);
+
     return STATUS_OK;
 }
 
@@ -116,6 +131,11 @@ status_t Sensors::publish_all_feeds() {
     }
 
     rc = publish_soil_moisture();
+    if (rc != STATUS_OK) {
+        return rc;
+    }
+
+    rc = publish_water_level();
     if (rc != STATUS_OK) {
         return rc;
     }
@@ -272,6 +292,28 @@ status_t Sensors::publish_soil_moisture() {
     }
 }
 
+status_t Sensors::publish_water_level() {
+    if (_water_level_feed == nullptr) {
+        LOG_ERROR("Water Level Feed not set");
+        return STATUS_FAIL;
+    }
+
+    if (water_level_percent == WATERLEVEL_INVALID_MEASUREMENT) {
+        // Skip publishing invalid value
+        // Logging of this error happens in update function
+        return STATUS_OK;
+    }
+
+    LOG_INFO("\nSending water level val: " + String(water_level_percent));
+    if (!_soil_moisture_feed->publish(water_level_percent)) {
+        LOG_ERROR("Failed to publish water level feed");
+        return STATUS_FAIL;
+    } else {
+        LOG_INFO("OK!");
+        return STATUS_OK;
+    }
+}
+
 // show last sensor operate status
 String Sensors::bme_operate_status_to_string(BME280::eStatus_t eStatus)
 {
@@ -367,19 +409,21 @@ status_t Sensors::gg_init()
   return STATUS_OK;
 }
 
-String Sensors::status_to_string(status_t status) {
-  switch(status) {
-      case STATUS_OK:    return "Everything ok"; break;
-      case STATUS_INVALID_PARAMS: return "Invalid Params"; break;
-      case STATUS_FAIL:  return "Failure"; break;
-      default: return "Unknown status"; break;
-  }
-}
-
 status_t Sensors::update_soil_moisture_values() {
     soil_moisture_percent = soilMoisture.soilMoisturePercent();
 
     return STATUS_OK;
+}
+
+status_t Sensors::update_water_level_values() {
+    status_t rc =  waterLevel.getWaterLevelPercent(&water_level_percent);
+
+    // If we get a timeout, mark the value as invalid so we don't publish it
+    if (rc == STATUS_TIMEOUT) {
+        water_level_percent = WATERLEVEL_INVALID_MEASUREMENT;
+    }
+
+    return rc;
 }
 
 status_t Sensors::set_soc_feed(Adafruit_MQTT_Publish *soc_feed) {
@@ -414,6 +458,12 @@ status_t Sensors::set_soil_temp_feed(Adafruit_MQTT_Publish *soil_temperature_fee
 
 status_t Sensors::set_soil_moisture_feed(Adafruit_MQTT_Publish *soil_moisture_feed) {
     _soil_moisture_feed = soil_moisture_feed;
+
+    return STATUS_OK;
+}
+
+status_t Sensors::set_water_level_feed(Adafruit_MQTT_Publish *water_level_feed) {
+    _water_level_feed = water_level_feed;
 
     return STATUS_OK;
 }

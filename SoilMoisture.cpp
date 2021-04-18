@@ -1,22 +1,9 @@
 #include "SoilMoisture.h"
 #include "Logger.h"
+#include "Utilities.h"
 
 //! Number of ADC readings to average per soil moisture reading
 #define SOIL_MOISTURE_NUMBER_ADC_READINGS 100
-
-double SoilMoisture::mapRange(double in, double inMin, double inMax, double
-                              outMin, double outMax)
-{
-    if (in < inMin) {
-        return outMin;
-    }
-
-    if (in > inMax) {
-        return outMax;;
-    }
-
-    return outMin + ((in - inMin) * (outMax - outMin)) / (inMax - inMin);
-}
 
 double SoilMoisture::soilMoistureADCValToPercent(double adcVal) {
     // Moisture sensor increases in value as moisture decreases, giving max

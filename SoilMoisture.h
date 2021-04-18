@@ -43,8 +43,6 @@ protected:
      */
     double soilMoistureADCValToPercent(double adcVal);
 
-    double mapRange(double in, double inMin, double inMax, double outMin, double outMax);
-
     //! The adc reading in air
     uint32_t _reading_air;
 

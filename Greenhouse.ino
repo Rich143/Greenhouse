@@ -63,7 +63,6 @@ Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO
 
 /****************************** Feeds ***************************************/
 
-// Setup a feed called 'photocell' for publishing.
 // Notice MQTT paths for AIO follow the form: <username>/feeds/<feedname>
 Adafruit_MQTT_Publish soc_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/battery-soc");
 Adafruit_MQTT_Publish cell_voltage_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/battery-cell-voltage");
@@ -71,6 +70,7 @@ Adafruit_MQTT_Publish co2_ppm_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "
 Adafruit_MQTT_Publish air_temp_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/air-temperature");
 Adafruit_MQTT_Publish soil_temperature_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/soil-temperature");
 Adafruit_MQTT_Publish soil_moisture_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/soil-moisture");
+Adafruit_MQTT_Publish water_level_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/water-level");
 Adafruit_MQTT_Publish logging_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/greenhouse-log");
 
 /*************************** Sketch Code ************************************/
@@ -116,7 +116,7 @@ void setup() {
   LOG_INFO("Initializing sensors");
   status_t rc = gSensors.init();
   if (rc != STATUS_OK) {
-    LOG_ERROR("Error initing sensors: " + Sensors::status_to_string(rc));
+    LOG_ERROR("Error initing sensors: " + status_to_string(rc));
     errorHandler();
   }
 
@@ -127,6 +127,7 @@ void setup() {
   gSensors.set_air_temp_feed(&air_temp_feed);
   gSensors.set_soil_temp_feed(&soil_temperature_feed);
   gSensors.set_soil_moisture_feed(&soil_moisture_feed);
+  gSensors.set_water_level_feed(&water_level_feed);
 }
 
 void loop() {
@@ -138,14 +139,14 @@ void loop() {
   LOG_INFO("Reading from sensors");
   status_t rc = gSensors.update_all_values();
   if (rc != STATUS_OK) {
-    LOG_ERROR("Error reading sensors: " + Sensors::status_to_string(rc));
+    LOG_ERROR("Error reading sensors: " + status_to_string(rc));
     errorHandler();
   }
 
   LOG_INFO("Publishing sensor data");
   rc = gSensors.publish_all_feeds();
   if (rc != STATUS_OK) {
-    LOG_ERROR("Error publishing sensor data: " + Sensors::status_to_string(rc));
+    LOG_ERROR("Error publishing sensor data: " + status_to_string(rc));
     errorHandler();
   }
 
