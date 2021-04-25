@@ -125,6 +125,11 @@ status_t Sensors::publish_all_feeds() {
         return rc;
     }
 
+    rc = publish_air_humidity();
+    if (rc != STATUS_OK) {
+        return rc;
+    }
+
     rc = publish_soc();
     if (rc != STATUS_OK) {
         return rc;
@@ -225,9 +230,15 @@ status_t Sensors::publish_co2() {
 }
 
 status_t Sensors::update_bme280_values() {
-    air_temp_celsius = bme.getTemperature();
+   BME280::TempUnit tempUnit(BME280::TempUnit_Celsius);
+   BME280::PresUnit presUnit(BME280::PresUnit_Pa);
+   float pres, temp, hum;
 
-    return STATUS_OK;
+   bme.read(pres, temp, hum, tempUnit, presUnit);
+   air_temp_celsius = temp;
+   air_humidity_percent = hum;
+
+  return STATUS_OK;
 }
 
 status_t Sensors::publish_air_temp() {
@@ -239,6 +250,22 @@ status_t Sensors::publish_air_temp() {
     LOG_INFO("\nSending air temp val: " + String(air_temp_celsius));
     if (!_air_temp_feed->publish(air_temp_celsius)) {
         LOG_ERROR("Failed to publish air temp value");
+        return STATUS_FAIL;
+    } else {
+        LOG_INFO("OK!");
+        return STATUS_OK;
+    }
+}
+
+status_t Sensors::publish_air_humidity() {
+    if (_air_humidity_feed == nullptr) {
+        LOG_ERROR("Air Humidity Feed not set");
+        return STATUS_FAIL;
+    }
+
+    LOG_INFO("\nSending air humidity val: " + String(air_humidity_percent));
+    if (!_air_temp_feed->publish(air_humidity_percent)) {
+        LOG_ERROR("Failed to publish air humidity value");
         return STATUS_FAIL;
     } else {
         LOG_INFO("OK!");
@@ -387,31 +414,16 @@ status_t Sensors::publish_water_level() {
     }
 }
 
-// show last sensor operate status
-String Sensors::bme_operate_status_to_string(BME280::eStatus_t eStatus)
-{
-  switch(eStatus) {
-      case BME280::eStatusOK:    return "everything ok"; break;
-      case BME280::eStatusErr:   return "unknow error"; break;
-      case BME280::eStatusErrDeviceNotDetected:    return "device not detected"; break;
-      case BME280::eStatusErrParameter:    return "parameter error"; break;
-      default: return "unknown status"; break;
-  }
-}
-
 status_t Sensors::bme280_init()
 {
   int setupRetries;
 
-  bme.setI2CInterface(&Wire);
-  bme.setAddr(0x76);
-
-  bme.reset();
+  Wire.begin();
 
   LOG_INFO("Setting up bme280");
   for (setupRetries = 0; setupRetries < NUM_SETUP_RETRIES; setupRetries++) {
-    if (bme.begin() != BME280::eStatusOK) {
-      LOG_WARN("bme begin failed: " + bme_operate_status_to_string(bme.lastOperateStatus));
+    if (!bme.begin()) {
+      LOG_WARN("bme begin failed");
       delay(500);
     } else {
       break;
@@ -421,6 +433,18 @@ status_t Sensors::bme280_init()
   if (setupRetries >= NUM_SETUP_RETRIES) {
     LOG_ERROR("Gave up setting up bme280");
     return STATUS_FAIL;
+  }
+
+  switch(bme.chipModel())
+  {
+     case BME280::ChipModel_BME280:
+       LOG_INFO("Found BME280 sensor! Success.");
+       break;
+     case BME280::ChipModel_BMP280:
+       LOG_INFO("Found BMP280 sensor! No Humidity available.");
+       break;
+     default:
+       LOG_INFO("Found UNKNOWN sensor! Error!");
   }
 
   LOG_INFO("bme init success");
@@ -550,6 +574,12 @@ status_t Sensors::set_co2_feed(Adafruit_MQTT_Publish *co2_feed) {
 
 status_t Sensors::set_air_temp_feed(Adafruit_MQTT_Publish *air_temp_feed) {
     _air_temp_feed = air_temp_feed;
+
+    return STATUS_OK;
+}
+
+status_t Sensors::set_air_humidity_feed(Adafruit_MQTT_Publish *air_humidity_feed) {
+    _air_humidity_feed = air_humidity_feed;
 
     return STATUS_OK;
 }

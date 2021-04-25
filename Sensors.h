@@ -6,7 +6,7 @@
 #include <Adafruit_INA219.h>
 #include "LC709203F.h"
 #include "DFRobot_CCS811.h"
-#include "BME280.h"
+#include "BME280I2C.h"
 #include "Status.h"
 #include "Thermistor.h"
 #include "SoilMoisture.h"
@@ -25,6 +25,7 @@ class Sensors {
     status_t set_cell_voltage_feed(Adafruit_MQTT_Publish *cell_voltage_feed);
     status_t set_co2_feed(Adafruit_MQTT_Publish *co2_feed);
     status_t set_air_temp_feed(Adafruit_MQTT_Publish *air_temp_feed);
+    status_t set_air_humidity_feed(Adafruit_MQTT_Publish *air_humidity_feed);
     status_t set_soil_temp_feed(Adafruit_MQTT_Publish *soil_temperature_feed);
     status_t set_soil_moisture_feed(Adafruit_MQTT_Publish *soil_temperature_feed);
     status_t set_water_level_feed(Adafruit_MQTT_Publish *water_level_feed);
@@ -54,6 +55,7 @@ class Sensors {
 
     status_t publish_co2();
     status_t publish_air_temp();
+    status_t publish_air_humidity();
     status_t publish_soc();
     status_t publish_cell_voltage();
     status_t publish_soil_temp();
@@ -63,10 +65,9 @@ class Sensors {
     status_t publish_solar_panel_current();
     status_t publish_solar_panel_power();
 
-    String bme_operate_status_to_string(BME280::eStatus_t eStatus);
-
     double co2_ppm;
     double air_temp_celsius;
+    double air_humidity_percent;
     double battery_soc_percent;
     double battery_voltage_mv;
     double soil_temperature_celsius;
@@ -80,6 +81,7 @@ class Sensors {
     Adafruit_MQTT_Publish *_cell_voltage_feed = nullptr;
     Adafruit_MQTT_Publish *_co2_feed = nullptr;
     Adafruit_MQTT_Publish *_air_temp_feed = nullptr;
+    Adafruit_MQTT_Publish *_air_humidity_feed = nullptr;
     Adafruit_MQTT_Publish *_soil_temp_feed = nullptr;
     Adafruit_MQTT_Publish *_soil_moisture_feed = nullptr;
     Adafruit_MQTT_Publish *_water_level_feed = nullptr;
@@ -94,7 +96,7 @@ class Sensors {
     DFRobot_CCS811 CCS811;
 
     // Weather monitor sensor
-    BME280 bme;
+    BME280I2C bme;
 
     // Soil temperature thermistor
     Thermistor thermistor;
