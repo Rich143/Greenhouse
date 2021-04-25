@@ -18,6 +18,7 @@
 #include "Sensors.h"
 #include "Status.h"
 #include "Logger.h"
+#include "WaterPump.h"
 
 /************************* Deep Sleep *********************************/
 
@@ -30,7 +31,7 @@
 
 /************ Global State ******************/
 
-/*RTC_DATA_ATTR int bootCount = 0;*/
+WaterPump waterPump;
 
 WiFiClientSecure client;
 
@@ -71,6 +72,9 @@ Adafruit_MQTT_Publish air_temp_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME 
 Adafruit_MQTT_Publish soil_temperature_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/soil-temperature");
 Adafruit_MQTT_Publish soil_moisture_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/soil-moisture");
 Adafruit_MQTT_Publish water_level_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/water-level");
+Adafruit_MQTT_Publish solar_panel_voltage_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/solar-panel-voltage");
+Adafruit_MQTT_Publish solar_panel_current_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/solar-panel-current");
+Adafruit_MQTT_Publish solar_panel_power_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/solar-panel-power");
 Adafruit_MQTT_Publish logging_feed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/greenhouse-log");
 
 /*************************** Sketch Code ************************************/
@@ -128,6 +132,9 @@ void setup() {
   gSensors.set_soil_temp_feed(&soil_temperature_feed);
   gSensors.set_soil_moisture_feed(&soil_moisture_feed);
   gSensors.set_water_level_feed(&water_level_feed);
+  gSensors.set_solar_panel_voltage_feed(&solar_panel_voltage_feed);
+  gSensors.set_solar_panel_current_feed(&solar_panel_current_feed);
+  gSensors.set_solar_panel_power_feed(&solar_panel_power_feed);
 }
 
 void loop() {

@@ -3,6 +3,7 @@
 
 #include "Adafruit_MQTT.h"
 #include "Adafruit_MQTT_Client.h"
+#include <Adafruit_INA219.h>
 #include "LC709203F.h"
 #include "DFRobot_CCS811.h"
 #include "BME280.h"
@@ -27,6 +28,9 @@ class Sensors {
     status_t set_soil_temp_feed(Adafruit_MQTT_Publish *soil_temperature_feed);
     status_t set_soil_moisture_feed(Adafruit_MQTT_Publish *soil_temperature_feed);
     status_t set_water_level_feed(Adafruit_MQTT_Publish *water_level_feed);
+    status_t set_solar_panel_voltage_feed(Adafruit_MQTT_Publish *solar_panel_voltage_feed);
+    status_t set_solar_panel_current_feed(Adafruit_MQTT_Publish *solar_panel_current_feed);
+    status_t set_solar_panel_power_feed(Adafruit_MQTT_Publish *solar_panel_power_feed);
 
     /**
       * @brief Publishes current sensor data to the MQTT feeds
@@ -38,6 +42,7 @@ class Sensors {
     status_t bme280_init();
     status_t ccs811_init();
     status_t gg_init();
+    status_t ina219_init();
 
     status_t update_ccs811_values();
     status_t update_bme280_values();
@@ -45,6 +50,7 @@ class Sensors {
     status_t update_thermistor_values();
     status_t update_soil_moisture_values();
     status_t update_water_level_values();
+    status_t update_ina219_values();
 
     status_t publish_co2();
     status_t publish_air_temp();
@@ -53,6 +59,9 @@ class Sensors {
     status_t publish_soil_temp();
     status_t publish_soil_moisture();
     status_t publish_water_level();
+    status_t publish_solar_panel_voltage();
+    status_t publish_solar_panel_current();
+    status_t publish_solar_panel_power();
 
     String bme_operate_status_to_string(BME280::eStatus_t eStatus);
 
@@ -63,6 +72,9 @@ class Sensors {
     double soil_temperature_celsius;
     double soil_moisture_percent;
     double water_level_percent;
+    double solar_panel_voltage_V;
+    double solar_panel_current_mA;
+    double solar_panel_power_mW;
 
     Adafruit_MQTT_Publish *_soc_feed = nullptr;
     Adafruit_MQTT_Publish *_cell_voltage_feed = nullptr;
@@ -71,6 +83,9 @@ class Sensors {
     Adafruit_MQTT_Publish *_soil_temp_feed = nullptr;
     Adafruit_MQTT_Publish *_soil_moisture_feed = nullptr;
     Adafruit_MQTT_Publish *_water_level_feed = nullptr;
+    Adafruit_MQTT_Publish *_solar_panel_voltage_feed = nullptr;
+    Adafruit_MQTT_Publish *_solar_panel_current_feed = nullptr;
+    Adafruit_MQTT_Publish *_solar_panel_power_feed = nullptr;
 
     // Gas Gauge
     LC709203F gg;
@@ -88,6 +103,9 @@ class Sensors {
     SoilMoisture soilMoisture;
 
     WaterLevel waterLevel;
+
+    // current sensor
+    Adafruit_INA219 ina219;
 };
 
 // global sensors instance

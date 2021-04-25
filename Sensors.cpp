@@ -54,6 +54,11 @@ status_t Sensors::init() {
         return rc;
     }
 
+    rc = ina219_init();
+    if (rc != STATUS_OK) {
+        return rc;
+    }
+
     return STATUS_OK;
 }
 
@@ -72,6 +77,11 @@ status_t Sensors::update_all_values()
     }
 
     rc = update_gg_values();
+    if (rc != STATUS_OK) {
+        return rc;
+    }
+
+    rc = update_ina219_values();
     if (rc != STATUS_OK) {
         return rc;
     }
@@ -136,6 +146,21 @@ status_t Sensors::publish_all_feeds() {
     }
 
     rc = publish_water_level();
+    if (rc != STATUS_OK) {
+        return rc;
+    }
+
+    rc = publish_solar_panel_voltage();
+    if (rc != STATUS_OK) {
+        return rc;
+    }
+
+    rc = publish_solar_panel_current();
+    if (rc != STATUS_OK) {
+        return rc;
+    }
+
+    rc = publish_solar_panel_power();
     if (rc != STATUS_OK) {
         return rc;
     }
@@ -276,6 +301,54 @@ status_t Sensors::publish_cell_voltage() {
     }
 }
 
+status_t Sensors::publish_solar_panel_voltage() {
+    if (_solar_panel_voltage_feed == nullptr) {
+        LOG_ERROR("Solar Panel Voltage Feed not set");
+        return STATUS_FAIL;
+    }
+
+    LOG_INFO("\nSending solar panel voltage val: " + String(solar_panel_voltage_V));
+    if (!_solar_panel_voltage_feed->publish(solar_panel_voltage_V)) {
+        LOG_ERROR("Failed to publish solar panel voltage feed");
+        return STATUS_FAIL;
+    } else {
+        LOG_INFO("OK!");
+        return STATUS_OK;
+    }
+}
+
+status_t Sensors::publish_solar_panel_current() {
+    if (_solar_panel_current_feed == nullptr) {
+        LOG_ERROR("Solar Panel Current Feed not set");
+        return STATUS_FAIL;
+    }
+
+    LOG_INFO("\nSending solar panel current val: " + String(solar_panel_current_mA));
+    if (!_solar_panel_current_feed->publish(solar_panel_current_mA)) {
+        LOG_ERROR("Failed to publish solar panel current feed");
+        return STATUS_FAIL;
+    } else {
+        LOG_INFO("OK!");
+        return STATUS_OK;
+    }
+}
+
+status_t Sensors::publish_solar_panel_power() {
+    if (_solar_panel_power_feed == nullptr) {
+        LOG_ERROR("Solar Panel Power Feed not set");
+        return STATUS_FAIL;
+    }
+
+    LOG_INFO("\nSending solar panel power val: " + String(solar_panel_power_mW));
+    if (!_solar_panel_power_feed->publish(solar_panel_power_mW)) {
+        LOG_ERROR("Failed to publish solar panel power feed");
+        return STATUS_FAIL;
+    } else {
+        LOG_INFO("OK!");
+        return STATUS_OK;
+    }
+}
+
 status_t Sensors::publish_soil_moisture() {
     if (_soil_moisture_feed == nullptr) {
         LOG_ERROR("Soil Moisture Feed not set");
@@ -409,6 +482,37 @@ status_t Sensors::gg_init()
   return STATUS_OK;
 }
 
+status_t Sensors::ina219_init() {
+  int setupRetries;
+
+  LOG_INFO("Setting up INA219");
+  for (setupRetries = 0; setupRetries < NUM_SETUP_RETRIES; setupRetries++) {
+    if (!ina219.begin()) {
+      LOG_WARN("Failed to init INA219");
+      delay(500);
+    } else {
+      break;
+    }
+  }
+
+  if (setupRetries >= NUM_SETUP_RETRIES) {
+    LOG_ERROR("Gave up setting up INA219");
+    return STATUS_FAIL;
+  }
+
+  LOG_INFO("INA219 init success");
+
+  return STATUS_OK;
+}
+
+status_t Sensors::update_ina219_values() {
+  solar_panel_voltage_V = ina219.getBusVoltage_V();
+  solar_panel_current_mA = ina219.getCurrent_mA();
+  solar_panel_power_mW = ina219.getPower_mW();
+
+  return STATUS_OK;
+}
+
 status_t Sensors::update_soil_moisture_values() {
     soil_moisture_percent = soilMoisture.soilMoisturePercent();
 
@@ -466,4 +570,22 @@ status_t Sensors::set_water_level_feed(Adafruit_MQTT_Publish *water_level_feed) 
     _water_level_feed = water_level_feed;
 
     return STATUS_OK;
+}
+
+status_t Sensors::set_solar_panel_voltage_feed(Adafruit_MQTT_Publish *solar_panel_voltage_feed) {
+  _solar_panel_voltage_feed = solar_panel_voltage_feed;
+
+  return STATUS_OK;
+}
+
+status_t Sensors::set_solar_panel_current_feed(Adafruit_MQTT_Publish *solar_panel_current_feed) {
+  _solar_panel_current_feed = solar_panel_current_feed;
+
+  return STATUS_OK;
+}
+
+status_t Sensors::set_solar_panel_power_feed(Adafruit_MQTT_Publish *solar_panel_power_feed) {
+  _solar_panel_power_feed = solar_panel_power_feed;
+
+  return STATUS_OK;
 }
