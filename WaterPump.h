@@ -4,7 +4,7 @@
 #include "Arduino.h"
 #include "Status.h"
 
-#define WATERPUMP_DEFAULT_PUMP_ENABLE_PIN 35
+#define WATERPUMP_DEFAULT_PUMP_ENABLE_PIN 4
 
 /*!
  * \class WaterPump
