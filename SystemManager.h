@@ -53,6 +53,8 @@ protected:
     status_t updateConfigValueFromMQTT(ConfigValue& configValue,
                                                       MQTTConfigValue &mqttValue);
 
+    long getAverageRSSI(int32_t numSamples);
+
     /**
      * Variables
      */

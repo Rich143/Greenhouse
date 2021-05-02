@@ -5,7 +5,7 @@
 
 /************************* WiFi Access Point *********************************/
 
-#define WLAN_SSID       "Matthews-NCF"
+#define WLAN_SSID       "Matthews Home Network"
 #define WLAN_PASS       "OurNetwork@Home"
 
 /************************* Adafruit.io Setup *********************************/

@@ -65,6 +65,19 @@ void SystemManager::errorHandler() {
     goToSleep();
 }
 
+long SystemManager::getAverageRSSI(int32_t numSamples)
+{
+    long averageRSSI = 0;
+    for (int i = 0; i < numSamples; ++i) {
+        averageRSSI += WiFi.RSSI();
+        delay(20);
+    }
+
+    averageRSSI /= numSamples;
+
+    return averageRSSI;
+}
+
 status_t SystemManager::initWifiMQTT()
 {
     // Connect to WiFi access point.
@@ -81,8 +94,7 @@ status_t SystemManager::initWifiMQTT()
     }
     Serial.println();
 
-    WiFi.localIP();
-    LOG_INFO("WiFi connected, IP address: " + WiFi.localIP().toString());
+    LOG_INFO("WiFi connected, IP address: " + WiFi.localIP().toString() + " RSSI " + String(getAverageRSSI(5)) + " dBm");
 
     _client.setCACert(_test_root_ca);
 
