@@ -17,6 +17,9 @@
 #define SOIL_MOISTURE_WATER_THRESHOLD_PERCENT_INVALID (-1)
 #define DEFAULT_SOIL_MOISTURE_WATER_THRESHOLD_PERCENT SOIL_MOISTURE_WATER_THRESHOLD_PERCENT_INVALID
 
+#define WATER_TIME_MS_INVALID (-1)
+#define DEFAULT_WATER_TIME_MS WATER_TIME_MS_INVALID
+
 SystemManager::SystemManager() :
     _mqtt(&_client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_KEY),
     _soc_feed(&_mqtt, AIO_USERNAME "/feeds/battery-soc"),
@@ -30,13 +33,16 @@ SystemManager::SystemManager() :
     _solar_panel_voltage_feed(&_mqtt, AIO_USERNAME "/feeds/solar-panel-voltage"),
     _solar_panel_current_feed(&_mqtt, AIO_USERNAME "/feeds/solar-panel-current"),
     _solar_panel_power_feed(&_mqtt, AIO_USERNAME "/feeds/solar-panel-power"),
+    _watering_feed(&_mqtt, AIO_USERNAME "/feeds/watering"),
     _logging_feed(&_mqtt, AIO_USERNAME "/feeds/greenhouse-log"),
     _water_pump_override_mqtt_config(&_mqtt, AIO_USERNAME "/feeds/pump-control-override",
                          AIO_USERNAME "/feeds/pump-control-override/get"),
     _should_update_mqtt_config(&_mqtt, AIO_USERNAME "/feeds/update-config",
                           AIO_USERNAME "/feeds/update-config/get"),
     _water_threshold_mqtt_config(&_mqtt, AIO_USERNAME "/feeds/water-threshold", 
-                                           AIO_USERNAME "/feeds/water-threshold/get")
+                                           AIO_USERNAME "/feeds/water-threshold/get"),
+    _water_time_mqtt_config(&_mqtt, AIO_USERNAME "/feeds/water-time", 
+                                           AIO_USERNAME "/feeds/water-time/get")
 { }
 
 void SystemManager::goToSleep()
@@ -44,6 +50,15 @@ void SystemManager::goToSleep()
   esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
   esp_deep_sleep_start();
 }
+
+void SystemManager::lightSleep(uint32_t seconds)
+{
+    delay(100);
+
+    esp_sleep_enable_timer_wakeup(seconds * uS_TO_S_FACTOR);
+    esp_light_sleep_start();
+}
+
 
 // Error handler sleeps to restart us
 void SystemManager::errorHandler() {
@@ -179,9 +194,16 @@ status_t SystemManager::initAndLoadAppPreferences()
     }
 
     rc = _soil_moisture_water_threshold_percent.initAndLoad(
-        "waterThresh", SOIL_MOISTURE_WATER_THRESHOLD_PERCENT_INVALID);
+        "waterThresh", DEFAULT_SOIL_MOISTURE_WATER_THRESHOLD_PERCENT);
     if (rc != STATUS_OK) {
         LOG_ERROR("Failed to load water threshold config value");
+        return rc;
+    }
+
+    rc = _water_time_seconds.initAndLoad(
+        "waterTime", DEFAULT_WATER_TIME_MS);
+    if (rc != STATUS_OK) {
+        LOG_ERROR("Failed to load water time config value");
         return rc;
     }
 
@@ -203,6 +225,11 @@ status_t SystemManager::initMQTTConfigValues()
     }
 
     rc = _water_threshold_mqtt_config.init();
+    if (rc != STATUS_OK) {
+        return rc;
+    }
+
+    rc = _water_time_mqtt_config.init();
     if (rc != STATUS_OK) {
         return rc;
     }
@@ -252,6 +279,12 @@ void SystemManager::init()
         LOG_ERROR("Error setting sensor MQTT feeds" + status_to_string(rc));
         errorHandler();
     }
+
+    rc = waterPump.init();
+    if (rc != STATUS_OK) {
+        LOG_ERROR("Failed to init water pump");
+        errorHandler();
+    }
 }
 
 status_t SystemManager::updateAndPublishSensors() {
@@ -272,23 +305,22 @@ status_t SystemManager::updateAndPublishSensors() {
     return STATUS_OK;
 }
 
-status_t SystemManager::updateWaterThresholdMqtt()
+status_t SystemManager::updateConfigValueFromMQTT(ConfigValue& configValue,
+                                                  MQTTConfigValue &mqttValue)
 {
     status_t rc;
-    rc = _water_threshold_mqtt_config.updateValue();
+    rc = mqttValue.updateValue();
     if (rc != STATUS_OK) {
-        LOG_ERROR("Failed to update water threshold mqtt value");
         return rc;
     }
    
-    rc = _soil_moisture_water_threshold_percent.updateValue(
-        _water_threshold_mqtt_config.getValueDouble());
+    rc = configValue.updateValue(
+        mqttValue.getValueDouble());
     if (rc != STATUS_OK) {
         return rc;
     }
 
-    LOG_INFO("New water threshold " +
-              String(_water_threshold_mqtt_config.getValueDouble()));
+    return STATUS_OK;
 }
 
 status_t SystemManager::updateConfigValues()
@@ -304,13 +336,42 @@ status_t SystemManager::updateConfigValues()
     if (_should_update_mqtt_config.getValueOnOff()) {
         LOG_INFO("Updating Config values");
 
-        rc = updateWaterThresholdMqtt();
+        rc = updateConfigValueFromMQTT(_soil_moisture_water_threshold_percent,
+                                       _water_threshold_mqtt_config);
         if (rc != STATUS_OK) {
             return rc;
         }
+
+        rc = updateConfigValueFromMQTT(_water_time_seconds,
+                                       _water_time_mqtt_config);
+        if (rc != STATUS_OK) {
+            return rc;
+        }
+
+        LOG_ALWAYS("New config: water threshold " +
+                   String(_soil_moisture_water_threshold_percent.getValue()) +
+                   " water time " + String(_water_time_seconds.getValue()));
     }
 
     return STATUS_OK;
+}
+
+status_t SystemManager::waterPlants()
+{
+    if (_water_time_seconds.getValue() == WATER_TIME_MS_INVALID) {
+        LOG_ERROR("Water Time not configured, skipping watering");
+        return STATUS_FAIL;
+    }
+
+    LOG_DEBUG("Start watering");
+    _watering_feed.publish(1);
+    waterPump.turnOn();
+
+    delay(_water_time_seconds.getValue() * 1000);
+
+    waterPump.turnOff();
+    _watering_feed.publish(0);
+    LOG_DEBUG("Done watering");
 }
 
 void SystemManager::run()
@@ -331,6 +392,9 @@ void SystemManager::run()
 
     if (shouldWater()) {
         LOG_DEBUG("Watering the plants");
+        waterPlants();
+    } else {
+        LOG_DEBUG("Not watering the plants");
     }
 
     LOG_INFO("Going to sleep for (seconds): " + String(TIME_TO_SLEEP));

@@ -88,7 +88,7 @@ bool Logger::canLog(LogLevel level, LoggingOutputs output) {
         return false;
     }
 
-    if (level <= _levels[output]) {
+    if (level <= _levels[output] || level == ALWAYS) {
         return true;
     } else {
         return false;

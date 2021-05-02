@@ -8,6 +8,7 @@
 #include "Sensors.h"
 #include "ConfigValue.h"
 #include "MQTTConfigValue.h"
+#include "WaterPump.h"
 
 /*! \class SystemManager
  *  \brief System Manager manages the state of the greenhouse
@@ -43,13 +44,26 @@ protected:
 
     void goToSleep();
 
+    void lightSleep(uint32_t seconds);
+    
+    status_t waterPlants();
+
     status_t updateConfigValues();
 
-    status_t updateWaterThresholdMqtt();
+    status_t updateConfigValueFromMQTT(ConfigValue& configValue,
+                                                      MQTTConfigValue &mqttValue);
+
+    /**
+     * Variables
+     */
 
     ConfigValue _soil_moisture_water_threshold_percent;
 
+    ConfigValue _water_time_seconds;
+
     Sensors _sensors;
+
+    WaterPump waterPump;
 
     /**
      * MQTT
@@ -69,6 +83,8 @@ protected:
     Adafruit_MQTT_Publish _solar_panel_voltage_feed;
     Adafruit_MQTT_Publish _solar_panel_current_feed;
     Adafruit_MQTT_Publish _solar_panel_power_feed;
+    Adafruit_MQTT_Publish _watering_feed;
+
     Adafruit_MQTT_Publish _logging_feed;
 
     /*
@@ -81,6 +97,7 @@ protected:
      */
     MQTTConfigValue _should_update_mqtt_config;
     MQTTConfigValue _water_threshold_mqtt_config;
+    MQTTConfigValue _water_time_mqtt_config;
 
     const char* _test_root_ca= \
          "-----BEGIN CERTIFICATE-----\n" \

@@ -10,6 +10,7 @@
 
 #define LOG_FORMAT_BUFFER_LEN 200
 
+#define LOG_ALWAYS(msg) gLogger.Log(Logger::ALWAYS, msg)
 #define LOG_ERROR(msg) gLogger.Log(Logger::ERROR, msg)
 #define LOG_WARN(msg) gLogger.Log(Logger::WARN, msg)
 #define LOG_INFO(msg) gLogger.Log(Logger::INFO, msg)
@@ -27,7 +28,8 @@ class Logger {
         ERROR,
         WARN,
         INFO,
-        DEBUG
+        DEBUG,
+        ALWAYS
     };
 
     enum LoggingOutputs {
