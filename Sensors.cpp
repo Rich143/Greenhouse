@@ -23,8 +23,6 @@
 
 #define WATERLEVEL_INVALID_MEASUREMENT (-1)
 
-Sensors gSensors;
-
 status_t Sensors::init() {
     status_t rc;
 
@@ -618,4 +616,8 @@ status_t Sensors::set_solar_panel_power_feed(Adafruit_MQTT_Publish *solar_panel_
   _solar_panel_power_feed = solar_panel_power_feed;
 
   return STATUS_OK;
+}
+
+double Sensors::getSoilMoisturePercentage() {
+  return soil_moisture_percent;
 }

@@ -23,6 +23,7 @@
 class Logger {
     public:
     enum LogLevel {
+        DONT_LOG,
         ERROR,
         WARN,
         INFO,

@@ -6,15 +6,8 @@
 #include "Adafruit_MQTT_Client.h"
 #include "Status.h"
 #include "Sensors.h"
-
-/************************* Config Constants *********************************/
-
-/************************* Deep Sleep *********************************/
-#define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
-#define TIME_TO_SLEEP  120        /* Time ESP32 will go to sleep (in seconds) */
-
-/************************* Other Constants *********************************/
-#define NUM_SETUP_RETRIES 5
+#include "ConfigValue.h"
+#include "MQTTConfigValue.h"
 
 /*! \class SystemManager
  *  \brief System Manager manages the state of the greenhouse
@@ -32,17 +25,31 @@ public:
 protected:
     bool shouldWater();
 
+    status_t updateAndPublishSensors();
+
+    status_t initMQTTConfigValues();
+
     status_t initWifiMQTT();
+
+    status_t initAndLoadAppPreferences();
 
     status_t setSensorFeeds();
 
     status_t MQTTConnect();
 
+    status_t updateConfigFromMQTT();
+
     void errorHandler();
 
     void goToSleep();
 
-    bool _water_pump_override;
+    status_t updateConfigValues();
+
+    status_t updateWaterThresholdMqtt();
+
+    ConfigValue _soil_moisture_water_threshold_percent;
+
+    Sensors _sensors;
 
     /**
      * MQTT
@@ -64,8 +71,16 @@ protected:
     Adafruit_MQTT_Publish _solar_panel_power_feed;
     Adafruit_MQTT_Publish _logging_feed;
 
-    Adafruit_MQTT_Subscribe _pump_control_override_feed;
-    Adafruit_MQTT_Publish _pump_control_override_feed_get;
+    /*
+     * Config values used to control system behaviour, always updated
+     */
+    MQTTConfigValue _water_pump_override_mqtt_config;
+
+    /*
+     * Config values, only updated if _should_update_config is set to ON
+     */
+    MQTTConfigValue _should_update_mqtt_config;
+    MQTTConfigValue _water_threshold_mqtt_config;
 
     const char* _test_root_ca= \
          "-----BEGIN CERTIFICATE-----\n" \

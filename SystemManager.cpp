@@ -3,6 +3,19 @@
 #include "Secrets.h"
 #include "Status.h"
 #include "Logger.h"
+#include "AppPreferences.h"
+
+/************************* Config Constants *********************************/
+
+/************************* Deep Sleep *********************************/
+#define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
+#define TIME_TO_SLEEP  120        /* Time ESP32 will go to sleep (in seconds) */
+
+/************************* Other Constants *********************************/
+#define NUM_SETUP_RETRIES 5
+
+#define SOIL_MOISTURE_WATER_THRESHOLD_PERCENT_INVALID (-1)
+#define DEFAULT_SOIL_MOISTURE_WATER_THRESHOLD_PERCENT SOIL_MOISTURE_WATER_THRESHOLD_PERCENT_INVALID
 
 SystemManager::SystemManager() :
     _mqtt(&_client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_KEY),
@@ -18,9 +31,13 @@ SystemManager::SystemManager() :
     _solar_panel_current_feed(&_mqtt, AIO_USERNAME "/feeds/solar-panel-current"),
     _solar_panel_power_feed(&_mqtt, AIO_USERNAME "/feeds/solar-panel-power"),
     _logging_feed(&_mqtt, AIO_USERNAME "/feeds/greenhouse-log"),
-    _pump_control_override_feed(&_mqtt, AIO_USERNAME "/feeds/pump-control-override"),
-    _pump_control_override_feed_get(&_mqtt, AIO_USERNAME "/feeds/pump-control-override/get")
-{}
+    _water_pump_override_mqtt_config(&_mqtt, AIO_USERNAME "/feeds/pump-control-override",
+                         AIO_USERNAME "/feeds/pump-control-override/get"),
+    _should_update_mqtt_config(&_mqtt, AIO_USERNAME "/feeds/update-config",
+                          AIO_USERNAME "/feeds/update-config/get"),
+    _water_threshold_mqtt_config(&_mqtt, AIO_USERNAME "/feeds/water-threshold", 
+                                           AIO_USERNAME "/feeds/water-threshold/get")
+{ }
 
 void SystemManager::goToSleep()
 {
@@ -68,54 +85,54 @@ status_t SystemManager::setSensorFeeds()
 
     LOG_INFO("Setting sensor mqtt feeds");
 
-    rc = gSensors.set_soc_feed(&_soc_feed);
+    rc = _sensors.set_soc_feed(&_soc_feed);
     if (rc != STATUS_OK) {
         return rc;
     }
-    rc = gSensors.set_cell_voltage_feed(&_cell_voltage_feed);
+    rc = _sensors.set_cell_voltage_feed(&_cell_voltage_feed);
     if (rc != STATUS_OK) {
         return rc;
     }
-    rc = gSensors.set_co2_feed(&_co2_ppm_feed);
+    rc = _sensors.set_co2_feed(&_co2_ppm_feed);
     if (rc != STATUS_OK) {
         return rc;
     }
-    rc = gSensors.set_air_temp_feed(&_air_temp_feed);
-    if (rc != STATUS_OK) {
-        return rc;
-    }
-
-    rc = gSensors.set_air_humidity_feed(&_air_humidity_feed);
+    rc = _sensors.set_air_temp_feed(&_air_temp_feed);
     if (rc != STATUS_OK) {
         return rc;
     }
 
-    rc = gSensors.set_soil_temp_feed(&_soil_temperature_feed);
+    rc = _sensors.set_air_humidity_feed(&_air_humidity_feed);
     if (rc != STATUS_OK) {
         return rc;
     }
 
-    rc = gSensors.set_soil_moisture_feed(&_soil_moisture_feed);
+    rc = _sensors.set_soil_temp_feed(&_soil_temperature_feed);
     if (rc != STATUS_OK) {
         return rc;
     }
 
-    rc = gSensors.set_water_level_feed(&_water_level_feed);
+    rc = _sensors.set_soil_moisture_feed(&_soil_moisture_feed);
     if (rc != STATUS_OK) {
         return rc;
     }
 
-    rc = gSensors.set_solar_panel_voltage_feed(&_solar_panel_voltage_feed);
+    rc = _sensors.set_water_level_feed(&_water_level_feed);
     if (rc != STATUS_OK) {
         return rc;
     }
 
-    rc = gSensors.set_solar_panel_current_feed(&_solar_panel_current_feed);
+    rc = _sensors.set_solar_panel_voltage_feed(&_solar_panel_voltage_feed);
     if (rc != STATUS_OK) {
         return rc;
     }
 
-    rc = gSensors.set_solar_panel_power_feed(&_solar_panel_power_feed);
+    rc = _sensors.set_solar_panel_current_feed(&_solar_panel_current_feed);
+    if (rc != STATUS_OK) {
+        return rc;
+    }
+
+    rc = _sensors.set_solar_panel_power_feed(&_solar_panel_power_feed);
     if (rc != STATUS_OK) {
         return rc;
     }
@@ -153,6 +170,46 @@ status_t SystemManager::MQTTConnect() {
   return STATUS_OK;
 }
 
+status_t SystemManager::initAndLoadAppPreferences()
+{
+    status_t rc;
+
+    if (!gAppPreferences.begin("AppPreferences", false)) {
+        return STATUS_FAIL;
+    }
+
+    rc = _soil_moisture_water_threshold_percent.initAndLoad(
+        "waterThresh", SOIL_MOISTURE_WATER_THRESHOLD_PERCENT_INVALID);
+    if (rc != STATUS_OK) {
+        LOG_ERROR("Failed to load water threshold config value");
+        return rc;
+    }
+
+    return STATUS_OK;
+}
+
+status_t SystemManager::initMQTTConfigValues()
+{
+    status_t rc;
+
+    rc = _water_pump_override_mqtt_config.init();
+    if (rc != STATUS_OK) {
+        return rc;
+    }
+
+    rc = _should_update_mqtt_config.init();
+    if (rc != STATUS_OK) {
+        return rc;
+    }
+
+    rc = _water_threshold_mqtt_config.init();
+    if (rc != STATUS_OK) {
+        return rc;
+    }
+
+    return STATUS_OK;
+}
+
 void SystemManager::init()
 {
     status_t rc;
@@ -161,6 +218,18 @@ void SystemManager::init()
     delay(10);
 
     LOG_INFO("Starting up...");
+
+    rc = initAndLoadAppPreferences();
+    if (rc != STATUS_OK) {
+        LOG_ERROR("Error initing and loading app preferences: " + status_to_string(rc));
+        errorHandler();
+    }
+
+    rc = initMQTTConfigValues();
+    if (rc != STATUS_OK) {
+        LOG_ERROR("Error initing MQTT Config values " + status_to_string(rc));
+        errorHandler();
+    }
 
     rc = initWifiMQTT();
     if (rc != STATUS_OK) {
@@ -172,7 +241,7 @@ void SystemManager::init()
     gLogger.enableMqttLogging(&_logging_feed);
 
     LOG_INFO("Initializing sensors");
-    rc = gSensors.init();
+    rc = _sensors.init();
     if (rc != STATUS_OK) {
         LOG_ERROR("Error initing sensors: " + status_to_string(rc));
         errorHandler();
@@ -185,22 +254,83 @@ void SystemManager::init()
     }
 }
 
-void SystemManager::run()
-{
-    MQTTConnect();
-
+status_t SystemManager::updateAndPublishSensors() {
     LOG_INFO("Reading from sensors");
-    status_t rc = gSensors.update_all_values();
+    status_t rc = _sensors.update_all_values();
     if (rc != STATUS_OK) {
         LOG_ERROR("Error reading sensors: " + status_to_string(rc));
-        errorHandler();
+        return rc;
     }
 
     LOG_INFO("Publishing sensor data");
-    rc = gSensors.publish_all_feeds();
+    rc = _sensors.publish_all_feeds();
     if (rc != STATUS_OK) {
         LOG_ERROR("Error publishing sensor data: " + status_to_string(rc));
+        return rc;
+    }
+
+    return STATUS_OK;
+}
+
+status_t SystemManager::updateWaterThresholdMqtt()
+{
+    status_t rc;
+    rc = _water_threshold_mqtt_config.updateValue();
+    if (rc != STATUS_OK) {
+        LOG_ERROR("Failed to update water threshold mqtt value");
+        return rc;
+    }
+   
+    rc = _soil_moisture_water_threshold_percent.updateValue(
+        _water_threshold_mqtt_config.getValueDouble());
+    if (rc != STATUS_OK) {
+        return rc;
+    }
+
+    LOG_INFO("New water threshold " +
+              String(_water_threshold_mqtt_config.getValueDouble()));
+}
+
+status_t SystemManager::updateConfigValues()
+{
+    status_t rc;
+
+    rc = _should_update_mqtt_config.updateValue();
+    if (rc != STATUS_OK) {
+        LOG_ERROR("Failed to update should update config mqtt value");
+        return rc;
+    }
+
+    if (_should_update_mqtt_config.getValueOnOff()) {
+        LOG_INFO("Updating Config values");
+
+        rc = updateWaterThresholdMqtt();
+        if (rc != STATUS_OK) {
+            return rc;
+        }
+    }
+
+    return STATUS_OK;
+}
+
+void SystemManager::run()
+{
+    status_t rc;
+
+    MQTTConnect();
+
+    rc = updateAndPublishSensors();
+    if (rc != STATUS_OK) {
         errorHandler();
+    }
+
+    rc = updateConfigValues();
+    if (rc != STATUS_OK) {
+        // This is not a serious error, so continue with other operations
+    }
+
+    if (shouldWater()) {
+        LOG_DEBUG("Watering the plants");
     }
 
     LOG_INFO("Going to sleep for (seconds): " + String(TIME_TO_SLEEP));
@@ -209,10 +339,31 @@ void SystemManager::run()
 
 bool SystemManager::shouldWater()
 {
-    if (_water_pump_override) {
+    status_t rc;
+    rc = _water_pump_override_mqtt_config.updateValue();
+    if (rc != STATUS_OK) {
+        LOG_ERROR("Failed to update water pump override mqtt value");
+    }
+
+    if (_water_pump_override_mqtt_config.getValueOnOff()) {
+        LOG_INFO("Water override is set, watering");
         return true;
     }
 
+    if (_soil_moisture_water_threshold_percent.getValue()
+        == SOIL_MOISTURE_WATER_THRESHOLD_PERCENT_INVALID)
+    {
+        LOG_INFO("Soil moisture water threshold not configured, skipping watering");
+        return false;
+    }
 
-    return false;
+    double soil_moisture_percent = _sensors.getSoilMoisturePercentage();
+
+    if (soil_moisture_percent <
+        _soil_moisture_water_threshold_percent.getValue())
+    {
+        return true;
+    } else {
+        return false;
+    }
 }

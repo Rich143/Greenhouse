@@ -33,6 +33,8 @@ class Sensors {
     status_t set_solar_panel_current_feed(Adafruit_MQTT_Publish *solar_panel_current_feed);
     status_t set_solar_panel_power_feed(Adafruit_MQTT_Publish *solar_panel_power_feed);
 
+    double getSoilMoisturePercentage();
+
     /**
       * @brief Publishes current sensor data to the MQTT feeds
       */
@@ -109,8 +111,5 @@ class Sensors {
     // current sensor
     Adafruit_INA219 ina219;
 };
-
-// global sensors instance
-extern Sensors gSensors;
 
 #endif /* end of include guard: __SENSORS_H */
