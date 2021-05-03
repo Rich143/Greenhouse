@@ -404,7 +404,7 @@ status_t Sensors::publish_water_level() {
     }
 
     LOG_INFO("\nSending water level val: " + String(water_level_percent));
-    if (!_soil_moisture_feed->publish(water_level_percent)) {
+    if (!_water_level_feed->publish(water_level_percent)) {
         LOG_ERROR("Failed to publish water level feed");
         return STATUS_FAIL;
     } else {
