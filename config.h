@@ -15,7 +15,7 @@
 #define AIO_USERNAME    "Rich_M"
 
 /************************* Logging *********************************/
-#define DEFAULT_LOG_LEVEL_UART Logger::INFO
+#define DEFAULT_LOG_LEVEL_UART Logger::DEBUG
 
 #define DEFAULT_LOG_LEVEL_MQTT Logger::WARN
 

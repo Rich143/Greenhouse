@@ -23,6 +23,8 @@ public:
 
     void init();
 
+    void goToSleep();
+
 protected:
     bool shouldWater();
 
@@ -42,8 +44,6 @@ protected:
 
     void errorHandler();
 
-    void goToSleep();
-
     void lightSleep(uint32_t seconds);
     
     status_t waterPlants();
@@ -54,6 +54,8 @@ protected:
                                                       MQTTConfigValue &mqttValue);
 
     long getAverageRSSI(int32_t numSamples);
+
+    void checkAndStartTelnet();
 
     /**
      * Variables
@@ -86,6 +88,7 @@ protected:
     Adafruit_MQTT_Publish _solar_panel_current_feed;
     Adafruit_MQTT_Publish _solar_panel_power_feed;
     Adafruit_MQTT_Publish _watering_feed;
+    Adafruit_MQTT_Publish _local_ip_feed;
 
     Adafruit_MQTT_Publish _logging_feed;
 
@@ -93,6 +96,7 @@ protected:
      * Config values used to control system behaviour, always updated
      */
     MQTTConfigValue _water_pump_override_mqtt_config;
+    MQTTConfigValue _enable_telnet;
 
     /*
      * Config values, only updated if _should_update_config is set to ON

@@ -4,6 +4,7 @@
 #include "Status.h"
 #include "Logger.h"
 #include "AppPreferences.h"
+#include "GreenhouseTelnet.h"
 
 /************************* Config Constants *********************************/
 
@@ -34,9 +35,12 @@ SystemManager::SystemManager() :
     _solar_panel_current_feed(&_mqtt, AIO_USERNAME "/feeds/solar-panel-current"),
     _solar_panel_power_feed(&_mqtt, AIO_USERNAME "/feeds/solar-panel-power"),
     _watering_feed(&_mqtt, AIO_USERNAME "/feeds/watering"),
+    _local_ip_feed(&_mqtt, AIO_USERNAME "/feeds/local-ip"),
     _logging_feed(&_mqtt, AIO_USERNAME "/feeds/greenhouse-log"),
     _water_pump_override_mqtt_config(&_mqtt, AIO_USERNAME "/feeds/pump-control-override",
                          AIO_USERNAME "/feeds/pump-control-override/get"),
+    _enable_telnet(&_mqtt, AIO_USERNAME "/feeds/enable-telnet",
+                         AIO_USERNAME "/feeds/enable-telnet/get"),
     _should_update_mqtt_config(&_mqtt, AIO_USERNAME "/feeds/update-config",
                           AIO_USERNAME "/feeds/update-config/get"),
     _water_threshold_mqtt_config(&_mqtt, AIO_USERNAME "/feeds/water-threshold", 
@@ -47,8 +51,9 @@ SystemManager::SystemManager() :
 
 void SystemManager::goToSleep()
 {
-  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
-  esp_deep_sleep_start();
+    LOG_INFO("Going to sleep for (seconds): " + String(TIME_TO_SLEEP));
+    esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
+    esp_deep_sleep_start();
 }
 
 void SystemManager::lightSleep(uint32_t seconds)
@@ -231,6 +236,11 @@ status_t SystemManager::initMQTTConfigValues()
         return rc;
     }
 
+    rc = _enable_telnet.init();
+    if (rc != STATUS_OK) {
+        return rc;
+    }
+
     rc = _should_update_mqtt_config.init();
     if (rc != STATUS_OK) {
         return rc;
@@ -386,11 +396,44 @@ status_t SystemManager::waterPlants()
     LOG_DEBUG("Done watering");
 }
 
+void SystemManager::checkAndStartTelnet()
+{
+    status_t rc;
+
+    LOG_INFO("Checking if should enable telnet");
+    rc = _enable_telnet.updateValue();
+    if (rc != STATUS_OK) {
+        LOG_ERROR("Failed to get enable telnet mqtt value");
+        return;
+    }
+
+    if (_enable_telnet.getValueOnOff()) {
+        if (!_local_ip_feed.publish(WiFi.localIP().toString().c_str())) {
+            LOG_ERROR("Failed to publish telnet ip");
+            return;
+        }
+
+        rc = gGreenhouseTelnet.start(this);
+        if (rc != STATUS_OK) {
+            LOG_ERROR("Failed to start telnet");
+            return;
+        }
+
+        while (1) {
+            gGreenhouseTelnet.run();
+        }
+    } else {
+        LOG_DEBUG("Telnet not enabled");
+    }
+}
+
 void SystemManager::run()
 {
     status_t rc;
 
     MQTTConnect();
+
+    checkAndStartTelnet();
 
     rc = updateAndPublishSensors();
     if (rc != STATUS_OK) {
@@ -409,7 +452,6 @@ void SystemManager::run()
         LOG_DEBUG("Not watering the plants");
     }
 
-    LOG_INFO("Going to sleep for (seconds): " + String(TIME_TO_SLEEP));
     goToSleep();
 }
 

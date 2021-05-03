@@ -32,8 +32,8 @@ class MQTTConfigValue
 
     protected:
         enum {
-            SUBSCRIPTION_READ_TIMEOUT_MS = 50,
-            SUBSCRIPTION_READ_NUM_TRIES = 10,
+            SUBSCRIPTION_READ_TIMEOUT_MS = 100,
+            SUBSCRIPTION_READ_NUM_TRIES = 50,
         };
 
         Adafruit_MQTT *_mqtt;
