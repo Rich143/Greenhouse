@@ -233,6 +233,7 @@ status_t Sensors::update_bme280_values() {
    float pres, temp, hum;
 
    bme.read(pres, temp, hum, tempUnit, presUnit);
+
    air_temp_celsius = temp;
    air_humidity_percent = hum;
 
@@ -262,7 +263,7 @@ status_t Sensors::publish_air_humidity() {
     }
 
     LOG_INFO("\nSending air humidity val: " + String(air_humidity_percent));
-    if (!_air_temp_feed->publish(air_humidity_percent)) {
+    if (!_air_humidity_feed->publish(air_humidity_percent)) {
         LOG_ERROR("Failed to publish air humidity value");
         return STATUS_FAIL;
     } else {
