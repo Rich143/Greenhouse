@@ -622,3 +622,7 @@ status_t Sensors::set_solar_panel_power_feed(Adafruit_MQTT_Publish *solar_panel_
 double Sensors::getSoilMoisturePercentage() {
   return soil_moisture_percent;
 }
+
+double Sensors::getBatterySOC() {
+  return battery_soc_percent;
+}

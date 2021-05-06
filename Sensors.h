@@ -35,6 +35,8 @@ class Sensors {
 
     double getSoilMoisturePercentage();
 
+    double getBatterySOC();
+
     /**
       * @brief Publishes current sensor data to the MQTT feeds
       */

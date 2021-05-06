@@ -9,6 +9,7 @@
 #include "ConfigValue.h"
 #include "MQTTConfigValue.h"
 #include "WaterPump.h"
+#include "TimerServer.h"
 
 /*! \class SystemManager
  *  \brief System Manager manages the state of the greenhouse
@@ -25,7 +26,13 @@ public:
 
     void goToSleep();
 
+    status_t setWaterHours(int waterHoursStart, int waterHoursEnd);
+
+    status_t setWaterMinSOC(double minSOC);
+
 protected:
+    bool canWater();
+
     bool shouldWater();
 
     status_t updateAndPublishSensors();
@@ -65,9 +72,16 @@ protected:
 
     ConfigValue _water_time_seconds;
 
+    ConfigValue _allowedWaterHoursStart;
+    ConfigValue _allowedWaterHoursEnd;
+
+    ConfigValue _minWaterBatterySOC;
+
     Sensors _sensors;
 
-    WaterPump waterPump;
+    WaterPump _waterPump;
+
+    TimerServer _timeServer;
 
     /**
      * MQTT

@@ -22,12 +22,18 @@ public:
      */
     void handleInput(String input);
     void pingCommand(cmd * c);
+    void setWaterHoursCommand(cmd *c);
+    void setWaterMinSOCCommand(cmd *c);
     void closeCommand(cmd *c);
+    void helpCommand(cmd *c);
     void errorCallback(cmd_error* e);
 
 protected:
     status_t registerCommands();
     status_t setupTelnet();
+
+    status_t registerSetWaterHoursCommand();
+    status_t registerSetWaterMinSOCCommand();
 
     ESPTelnet _telnet;
     SimpleCLI _cli;
@@ -40,6 +46,9 @@ protected:
      * CLI Commands
      */
     Command _pingCommand;
+    Command _setWaterHoursCommand;
+    Command _setWaterMinSOCCommand;
+    Command _helpCommand;
     Command _closeCommand;
 };
 

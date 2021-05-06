@@ -21,6 +21,11 @@
 #define WATER_TIME_MS_INVALID (-1)
 #define DEFAULT_WATER_TIME_MS WATER_TIME_MS_INVALID
 
+#define DEFAULT_ALLOWED_WATER_HOURS_START 10
+#define DEFAULT_ALLOWED_WATER_HOURS_END 14
+
+#define DEFAULT_MIN_WATER_BATTERY_SOC 50
+
 SystemManager::SystemManager() :
     _mqtt(&_client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_KEY),
     _soc_feed(&_mqtt, AIO_USERNAME "/feeds/battery-soc"),
@@ -224,6 +229,27 @@ status_t SystemManager::initAndLoadAppPreferences()
         return rc;
     }
 
+    rc = _allowedWaterHoursStart.initAndLoad(
+        "waterHourStart", DEFAULT_ALLOWED_WATER_HOURS_START);
+    if (rc != STATUS_OK) {
+        LOG_ERROR("Failed to load allow water hours start config value");
+        return rc;
+    }
+
+    rc = _allowedWaterHoursEnd.initAndLoad(
+        "waterHourEnd", DEFAULT_ALLOWED_WATER_HOURS_END);
+    if (rc != STATUS_OK) {
+        LOG_ERROR("Failed to load allow water hours end config value");
+        return rc;
+    }
+
+    rc = _minWaterBatterySOC.initAndLoad(
+        "minWaterSOC", DEFAULT_MIN_WATER_BATTERY_SOC);
+    if (rc != STATUS_OK) {
+        LOG_ERROR("Failed to load min water battery SOC config value");
+        return rc;
+    }
+
     return STATUS_OK;
 }
 
@@ -289,6 +315,8 @@ void SystemManager::init()
     // MQTT is connected, we can start logging over MQTT
     gLogger.enableMqttLogging(&_logging_feed);
 
+    _timeServer.init();
+
     LOG_INFO("Initializing sensors");
     rc = _sensors.init();
     if (rc != STATUS_OK) {
@@ -302,7 +330,7 @@ void SystemManager::init()
         errorHandler();
     }
 
-    rc = waterPump.init();
+    rc = _waterPump.init();
     if (rc != STATUS_OK) {
         LOG_ERROR("Failed to init water pump");
         errorHandler();
@@ -387,11 +415,11 @@ status_t SystemManager::waterPlants()
 
     LOG_DEBUG("Start watering");
     _watering_feed.publish(1);
-    waterPump.turnOn();
+    _waterPump.turnOn();
 
     delay(_water_time_seconds.getValue() * 1000);
 
-    waterPump.turnOff();
+    _waterPump.turnOff();
     _watering_feed.publish(0);
     LOG_DEBUG("Done watering");
 }
@@ -445,7 +473,7 @@ void SystemManager::run()
         // This is not a serious error, so continue with other operations
     }
 
-    if (shouldWater()) {
+    if (shouldWater() && canWater()) {
         LOG_DEBUG("Watering the plants");
         waterPlants();
     } else {
@@ -453,6 +481,41 @@ void SystemManager::run()
     }
 
     goToSleep();
+}
+
+/** 
+ * @brief Checks criteria determining if now is a good time to water the
+ * plants. This doesn't check if the plants need watering, only if it is
+ * possible to water plants right now
+ * 
+ * @return True if it is ok to water now, false otherwise
+ */
+bool SystemManager::canWater()
+{
+    /*
+     * Check if we are in the allowed water hours
+     *
+     * Water hours are to ensure we are getting sunlight on the solar panel
+     */
+    struct tm time = _timeServer.getLocalTime();
+
+    if (!(time.tm_hour >= _allowedWaterHoursStart.getValue() 
+        && time.tm_hour < _allowedWaterHoursEnd.getValue())) {
+        LOG_INFO("Not watering, outside water hours");
+        return false;
+    }
+
+    /*
+     * Check if we have enough battery to water
+     */
+    double soc = _sensors.getBatterySOC();
+
+    if (soc < _minWaterBatterySOC.getValue()) {
+        LOG_WARN("Unable to water due to low battery, SOC " + String(soc));
+        return false;
+    }
+
+    return true; 
 }
 
 bool SystemManager::shouldWater()
@@ -484,4 +547,36 @@ bool SystemManager::shouldWater()
     } else {
         return false;
     }
+}
+
+status_t SystemManager::setWaterHours(int waterHoursStart, int waterHoursEnd)
+{
+    status_t rc;
+
+    rc = _allowedWaterHoursStart.updateValue(waterHoursStart); 
+    if (rc != STATUS_OK) {
+        LOG_ERROR("Failed to update water hours start");
+        return rc;
+    }
+
+    rc = _allowedWaterHoursEnd.updateValue(waterHoursEnd);
+    if (rc != STATUS_OK) {
+        LOG_ERROR("Failed to update water hours end");
+        return rc;
+    }
+
+    return STATUS_OK;
+}
+
+status_t SystemManager::setWaterMinSOC(double minSOC)
+{
+    status_t rc;
+
+    rc = _minWaterBatterySOC.updateValue(minSOC); 
+    if (rc != STATUS_OK) {
+        LOG_ERROR("Failed to update min water soc");
+        return rc;
+    }
+
+    return STATUS_OK;
 }
