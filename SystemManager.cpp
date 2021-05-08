@@ -26,6 +26,8 @@
 
 #define DEFAULT_MIN_WATER_BATTERY_SOC 50
 
+#define TELNET_CHECK_STOP_TIME_MS (30*1000)
+
 SystemManager::SystemManager() :
     _mqtt(&_client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_KEY),
     _soc_feed(&_mqtt, AIO_USERNAME "/feeds/battery-soc"),
@@ -424,6 +426,45 @@ status_t SystemManager::waterPlants()
     LOG_DEBUG("Done watering");
 }
 
+bool SystemManager::checkShouldStopTelnet()
+{
+    status_t rc;
+
+    if (millis() - lastCheckedTelnetShouldStop > TELNET_CHECK_STOP_TIME_MS) {
+        lastCheckedTelnetShouldStop = millis();
+
+        rc = _enable_telnet.updateValue();
+        if (rc != STATUS_OK) {
+            LOG_ERROR("Failed to get enable telnet mqtt value, stopping telnet");
+            return true;
+        }
+
+        if (!_enable_telnet.getValueOnOff()) {
+            LOG_INFO("Telnet disabled");
+            return true;
+        }
+
+        return false;
+    } else {
+        return false;
+    }
+}
+void SystemManager::runTelnet()
+{
+    status_t rc;
+
+    while (1) {
+        gGreenhouseTelnet.run();
+
+        if (!gGreenhouseTelnet.isActive()) {
+            if (checkShouldStopTelnet()) {
+                LOG_ALWAYS("Stopping telnet");
+                break;
+            }
+        }
+    }
+}
+
 void SystemManager::checkAndStartTelnet()
 {
     status_t rc;
@@ -447,9 +488,9 @@ void SystemManager::checkAndStartTelnet()
             return;
         }
 
-        while (1) {
-            gGreenhouseTelnet.run();
-        }
+        runTelnet();
+
+        goToSleep();
     } else {
         LOG_DEBUG("Telnet not enabled");
     }

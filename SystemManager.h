@@ -64,6 +64,10 @@ protected:
 
     void checkAndStartTelnet();
 
+    void runTelnet();
+
+    bool checkShouldStopTelnet();
+
     /**
      * Variables
      */
@@ -82,6 +86,8 @@ protected:
     WaterPump _waterPump;
 
     TimerServer _timeServer;
+
+    uint64_t lastCheckedTelnetShouldStop = 0;
 
     /**
      * MQTT

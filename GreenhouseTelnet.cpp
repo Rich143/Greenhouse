@@ -1,6 +1,8 @@
 #include "GreenhouseTelnet.h"
 #include "Logger.h"
 
+#define TELNET_INACTIVITY_TIME_MS (30*1000)
+
 GreenhouseTelnet gGreenhouseTelnet;
 
 /* ------------------------------------------------- */
@@ -213,6 +215,10 @@ status_t GreenhouseTelnet::start(SystemManager* systemManager)
         return rc;
     }
 
+
+    // Mark the telnet as active when we start
+    lastActiveMS = millis();
+
     return STATUS_OK;
 }
 
@@ -227,5 +233,12 @@ status_t GreenhouseTelnet::run()
 
 void GreenhouseTelnet::handleInput(String input)
 {
+    lastActiveMS = millis();
+
     _cli.parse(input);
+}
+
+bool GreenhouseTelnet::isActive()
+{
+    return (millis() - lastActiveMS) < TELNET_INACTIVITY_TIME_MS;
 }

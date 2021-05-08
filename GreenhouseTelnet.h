@@ -17,6 +17,8 @@ public:
 
     status_t run();
 
+    bool isActive();
+
     /**
      * Private, only to be used in callbacks
      */
@@ -41,6 +43,8 @@ protected:
     SystemManager *_systemManager;
 
     bool endTelnet = false;
+
+    uint64_t lastActiveMS = 0;
 
     /**
      * CLI Commands
