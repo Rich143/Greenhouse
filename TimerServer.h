@@ -14,7 +14,7 @@ class TimerServer
 public:
     void init();
 
-    struct tm getLocalTime();
+    status_t getTime(struct tm *tm);
 
 protected:
     const char *_ntpServer = "pool.ntp.org"; // NTP server url

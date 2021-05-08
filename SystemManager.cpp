@@ -497,7 +497,12 @@ bool SystemManager::canWater()
      *
      * Water hours are to ensure we are getting sunlight on the solar panel
      */
-    struct tm time = _timeServer.getLocalTime();
+    struct tm time;
+    status_t rc;
+    rc = _timeServer.getTime(&time);
+    if (rc != STATUS_OK) {
+        return false;
+    }
 
     if (!(time.tm_hour >= _allowedWaterHoursStart.getValue() 
         && time.tm_hour < _allowedWaterHoursEnd.getValue())) {
