@@ -626,3 +626,19 @@ status_t SystemManager::setWaterMinSOC(double minSOC)
 
     return STATUS_OK;
 }
+
+status_t SystemManager::updateWaterLevelCalibration(uint32_t distanceFullCm,
+                                     uint32_t distanceEmptyCm)
+{
+    return _sensors.updateWaterLevelCalibration(distanceFullCm, distanceEmptyCm);
+}
+
+uint32_t SystemManager::getWaterDistanceCm()
+{
+    return _sensors.getWaterDistanceCm();
+}
+
+double SystemManager::getWaterLevelPercent()
+{
+    return _sensors.getWaterLevelPercent();
+}

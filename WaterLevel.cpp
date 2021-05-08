@@ -20,6 +20,7 @@ status_t WaterLevel::getWaterLevelPercent(double *waterLevelPercentOut)
         return STATUS_INVALID_PARAMS;
     }
 
+
     uint32_t distance_cm = getWaterDistanceCm();
 
     if (distance_cm == NO_ECHO) {
@@ -29,11 +30,52 @@ status_t WaterLevel::getWaterLevelPercent(double *waterLevelPercentOut)
     // Map the distance to a percentage, then invert since further distances
     // are lower water levels
     double water_level_percent = 100 - mapRange(distance_cm,
-                                          WATERLEVEL_FULL_LEVEL_DISTANCE_CM,
-                                          WATERLEVEL_EMPTY_LEVEL_DISTANCE_CM,
+                                          _distanceFullCm.getValue(),
+                                          _distanceEmptyCm.getValue(),
                                           0, 100);
 
     *waterLevelPercentOut = water_level_percent;
+
+    return STATUS_OK;
+}
+
+status_t WaterLevel::init()
+{
+    status_t rc;
+
+    rc = _distanceEmptyCm.initAndLoad(
+        "waterEmpty", DEFAULT_WATERLEVEL_EMPTY_LEVEL_DISTANCE_CM);
+    if (rc != STATUS_OK) {
+        LOG_ERROR("Failed to load water level empty config value");
+        return rc;
+    }
+
+    rc = _distanceFullCm.initAndLoad(
+        "waterFull", DEFAULT_WATERLEVEL_FULL_LEVEL_DISTANCE_CM);
+    if (rc != STATUS_OK) {
+        LOG_ERROR("Failed to load water level full config value");
+        return rc;
+    }
+
+    return STATUS_OK;
+}
+
+status_t WaterLevel::updateWaterLevelCalibration(uint32_t distanceFullCm,
+                                     uint32_t distanceEmptyCm)
+{
+    status_t rc;
+
+    rc = _distanceEmptyCm.updateValue(distanceEmptyCm);
+    if (rc != STATUS_OK) {
+        LOG_ERROR("Failed to update distance empty cm");
+        return rc;
+    }
+
+    rc = _distanceFullCm.updateValue(distanceFullCm);
+    if (rc != STATUS_OK) {
+        LOG_ERROR("Failed to update distance full cm");
+        return rc;
+    }
 
     return STATUS_OK;
 }

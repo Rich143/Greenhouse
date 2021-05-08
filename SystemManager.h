@@ -30,6 +30,13 @@ public:
 
     status_t setWaterMinSOC(double minSOC);
 
+    status_t updateWaterLevelCalibration(uint32_t distanceFullCm,
+                                         uint32_t distanceEmptyCm);
+
+    uint32_t getWaterDistanceCm();
+
+    double getWaterLevelPercent();
+
 protected:
     bool canWater();
 

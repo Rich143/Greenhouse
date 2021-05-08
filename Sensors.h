@@ -37,6 +37,12 @@ class Sensors {
 
     double getBatterySOC();
 
+    uint32_t getWaterDistanceCm();
+    double getWaterLevelPercent();
+
+    status_t updateWaterLevelCalibration(uint32_t distanceFullCm,
+                                         uint32_t distanceEmptyCm);
+
     /**
       * @brief Publishes current sensor data to the MQTT feeds
       */

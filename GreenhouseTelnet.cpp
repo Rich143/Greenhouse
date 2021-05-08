@@ -68,6 +68,40 @@ void GreenhouseTelnet::setWaterMinSOCCommand(cmd *c)
     }
 }
 
+void GreenhouseTelnet::updateWaterLevelCalibrationCommand(cmd *c)
+{
+    Command cmd(c);
+
+    double emptyCm = cmd.getArgument("emptyCm").getValue().toDouble();
+    double fullCm = cmd.getArgument("fullCm").getValue().toDouble();
+
+    status_t rc = _systemManager->updateWaterLevelCalibration(fullCm, emptyCm);
+
+    if (rc == STATUS_OK) {
+        _telnet.println("> Success: updated water level cal");
+    } else {
+        _telnet.println("> Fail: failed to update water level cal");
+    }
+}
+
+void GreenhouseTelnet::getWaterDistanceCommand(cmd *c)
+{
+    uint32_t distanceCm = _systemManager->getWaterDistanceCm();
+
+    _telnet.print("> Water Distance ");
+    _telnet.print(String(distanceCm));
+    _telnet.println(" cm");
+}
+
+void GreenhouseTelnet::getWaterLevelPercentCommand(cmd *c)
+{
+    double waterLevel = _systemManager->getWaterLevelPercent();
+
+    _telnet.print("> Water Level ");
+    _telnet.print(String(waterLevel));
+    _telnet.println(" %");
+}
+
 void GreenhouseTelnet::closeCommand(cmd *c)
 {
     _telnet.println("> Goodbye");
@@ -94,12 +128,13 @@ status_t GreenhouseTelnet::registerSetWaterHoursCommand()
                                             [](cmd *c) {
                                                 gGreenhouseTelnet.setWaterHoursCommand(c);
                                             });
-    _setWaterHoursCommand.addArgument("startHour");
-    _setWaterHoursCommand.addArgument("endHour");
 
     if (!_setWaterHoursCommand) {
         return STATUS_FAIL;
     } 
+
+    _setWaterHoursCommand.addArgument("startHour");
+    _setWaterHoursCommand.addArgument("endHour");
 
     _setWaterHoursCommand.setDescription(" Sets the hours that the plants can be watered");
 
@@ -112,13 +147,35 @@ status_t GreenhouseTelnet::registerSetWaterMinSOCCommand()
                                             [](cmd *c) {
                                                 gGreenhouseTelnet.setWaterMinSOCCommand(c);
                                             });
-    _setWaterMinSOCCommand.addArgument("minSOC");
 
     if (!_setWaterMinSOCCommand) {
         return STATUS_FAIL;
     } 
 
+    _setWaterMinSOCCommand.addArgument("minSOC");
+
     _setWaterMinSOCCommand.setDescription(" Sets the minimum SOC where the plants can be watered");
+    return STATUS_OK;
+}
+
+status_t GreenhouseTelnet::registerWaterLevelCalibrationCommand()
+{
+    _updateWaterLevelCalibrationCommand = _cli.addCommand("waterLevelCal",
+                                            [](cmd *c) {
+                                                gGreenhouseTelnet.updateWaterLevelCalibrationCommand(c);
+                                            });
+
+    if (!_updateWaterLevelCalibrationCommand) {
+        return STATUS_FAIL;
+    } 
+
+    _updateWaterLevelCalibrationCommand.addArgument("emptyCm");
+    _updateWaterLevelCalibrationCommand.addArgument("fullCm");
+
+    _updateWaterLevelCalibrationCommand.setDescription(
+        " Sets the calibration for water level."
+        " The empty and full distances are the distances measured when the"
+        " water reservoir is empty and full respectively");
     return STATUS_OK;
 }
 
@@ -157,6 +214,33 @@ status_t GreenhouseTelnet::registerCommands()
         LOG_ERROR("Failed to register setWaterMinSOC command");
         return STATUS_FAIL;
     }
+
+    rc = registerWaterLevelCalibrationCommand();
+    if (rc != STATUS_OK) {
+        LOG_ERROR("Failed to register waterLevelCal command");
+        return STATUS_FAIL;
+    }
+
+    _getWaterDistanceCommand = _cli.addCmd("waterDistance", 
+                               [](cmd *c) {
+                                gGreenhouseTelnet.getWaterDistanceCommand(c);
+                               });
+    if (!_getWaterDistanceCommand) {
+        LOG_ERROR("Failed to create waterDistance command");
+        return STATUS_FAIL;
+    }
+    _getWaterDistanceCommand.setDescription(" Get the distance to the water as measured by the water level sensor");
+
+    _getWaterDistancePercentCommand = _cli.addCmd("waterPercent", 
+                               [](cmd *c) {
+                                gGreenhouseTelnet.getWaterLevelPercentCommand(c);
+                               });
+    if (!_getWaterDistancePercentCommand) {
+        LOG_ERROR("Failed to create waterDistance command");
+        return STATUS_FAIL;
+    }
+    _getWaterDistancePercentCommand.setDescription(" Get the water level");
+ 
  
     // Set error Callback
     _cli.setOnError([](cmd_error *e) {

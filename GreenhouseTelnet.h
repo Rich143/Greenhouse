@@ -26,6 +26,9 @@ public:
     void pingCommand(cmd * c);
     void setWaterHoursCommand(cmd *c);
     void setWaterMinSOCCommand(cmd *c);
+    void updateWaterLevelCalibrationCommand(cmd *c);
+    void getWaterDistanceCommand(cmd *c);
+    void getWaterLevelPercentCommand(cmd *c);
     void closeCommand(cmd *c);
     void helpCommand(cmd *c);
     void errorCallback(cmd_error* e);
@@ -36,6 +39,7 @@ protected:
 
     status_t registerSetWaterHoursCommand();
     status_t registerSetWaterMinSOCCommand();
+    status_t registerWaterLevelCalibrationCommand();
 
     ESPTelnet _telnet;
     SimpleCLI _cli;
@@ -50,8 +54,14 @@ protected:
      * CLI Commands
      */
     Command _pingCommand;
+
     Command _setWaterHoursCommand;
     Command _setWaterMinSOCCommand;
+
+    Command _updateWaterLevelCalibrationCommand;
+    Command _getWaterDistanceCommand;
+    Command _getWaterDistancePercentCommand;
+
     Command _helpCommand;
     Command _closeCommand;
 };

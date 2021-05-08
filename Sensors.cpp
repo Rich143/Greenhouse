@@ -57,6 +57,11 @@ status_t Sensors::init() {
         return rc;
     }
 
+    rc = waterLevel.init();
+    if (rc != STATUS_OK) {
+        return rc;
+    }
+
     return STATUS_OK;
 }
 
@@ -625,4 +630,24 @@ double Sensors::getSoilMoisturePercentage() {
 
 double Sensors::getBatterySOC() {
   return battery_soc_percent;
+}
+
+status_t Sensors::updateWaterLevelCalibration(uint32_t distanceFullCm,
+                                     uint32_t distanceEmptyCm)
+{
+  return waterLevel.updateWaterLevelCalibration(distanceFullCm, distanceEmptyCm);
+}
+
+uint32_t Sensors::getWaterDistanceCm()
+{
+  return waterLevel.getWaterDistanceCm();
+}
+
+double Sensors::getWaterLevelPercent()
+{
+  double percent;
+
+  waterLevel.getWaterLevelPercent(&percent);
+
+  return percent;
 }
